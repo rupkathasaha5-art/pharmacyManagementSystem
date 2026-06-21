@@ -4,6 +4,7 @@ import SuperAdminPanel from '../components/dashboard/SuperAdminPanel.jsx';
 import AdminPanel from '../components/dashboard/AdminPanel.jsx';
 import ProcurementPanel from '../components/dashboard/ProcurementPanel.jsx';
 
+
 const Dashboard = () => {
   const { userData } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('overview');
@@ -16,7 +17,7 @@ const Dashboard = () => {
     superadmin: [
       { id: 'overview', name: 'Control Overview' },
       { id: 'registrations', name: 'Organization Verifications' },
-      { id: 'products', name: 'Add a new product' },
+      { id: 'add-product', name: 'Add a new product' },
       {id:'batch',name:'Add a new inventory batch'},
       { id: 'orders', name: 'Global Supply Orders' },
       { id: 'directory', name: 'Corporate Directory' },

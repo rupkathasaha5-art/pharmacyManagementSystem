@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Catalog from '../../pages/Catalog.jsx';
 
+
 const SuperAdminPanel = ({ activeTab }) => {
   // Mock data representing registration pipelines tracking unverified org profiles
   const [pendingOrgs, setPendingOrgs] = useState([
@@ -44,10 +45,7 @@ const SuperAdminPanel = ({ activeTab }) => {
   // =========================================================================
   
   // State for Form A (Products Array)
-  const [productRows, setProductRows] = useState([
-    { name: '', strength: '', form: 'Tablet', sku: '', wholesalePrice: '', manufacturer: '', scheduleClass: 'Rx-Only', requiresColdChain: false }
-  ]);
-
+ 
   // State for Form B (Batches Array)
   const [batchRows, setBatchRows] = useState([
     { productId: '', batchNumber: '', totalQuantity: '', storageZone: '', manufacturingDate: '', expiryDate: '' }
@@ -57,22 +55,10 @@ const SuperAdminPanel = ({ activeTab }) => {
   // ACTIONS: ROW MODIFICATION MUTATORS
   // =========================================================================
   
-  // Row Manipulators for Form A (Products)
-  const addProductRow = () => {
-    setProductRows([...productRows, { name: '', strength: '', form: 'Tablet', sku: '', wholesalePrice: '', manufacturer: '', scheduleClass: 'Rx-Only', requiresColdChain: false }]);
-  };
+ 
+  
 
-  const removeProductRow = (index) => {
-    if (productRows.length === 1) return;
-    setProductRows(productRows.filter((_, i) => i !== index));
-  };
-
-  const handleProductRowChange = (index, field, value) => {
-    const updatedRows = [...productRows];
-    updatedRows[index][field] = value;
-    setProductRows(updatedRows);
-  };
-
+ 
   // Row Manipulators for Form B (Batches)
   const addBatchRow = () => {
     setBatchRows([...batchRows, { productId: '', batchNumber: '', totalQuantity: '', storageZone: '', manufacturingDate: '', expiryDate: '' }]);
@@ -94,7 +80,7 @@ const SuperAdminPanel = ({ activeTab }) => {
   // =========================================================================
   const handleBulkProductSubmit = (e) => {
     e.preventDefault();
-    alert(`Form A - Bulk Committing ${productRows.length} Products to Master Catalog Database:\n${JSON.stringify(productRows, null, 2)}`);
+    alert(`Form A - Bulk Committing Products to Master Catalog Database`);
     
     // Dynamically expand the registered catalog dropdown storage values matching rows
     const updatedCatalog = [...registeredCatalogProducts];
@@ -209,24 +195,15 @@ const handleRemoveEmployee = (orgId, empId, empName) => {
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">Define master chemical configurations. Create as many entries as needed before publishing.</p>
               </div>
-              <button 
-                type="button" 
-                onClick={addProductRow}
-                className="bg-teal-50 text-[#009688] border border-teal-200 hover:bg-teal-100 font-bold text-xs px-4 py-2 rounded-lg tracking-wider uppercase transition-all shadow-sm"
-              >
-                + Add Another Product Row
-              </button>
+              
             </div>
 
             {/* Matrix Form Repeater */}
             <div className="space-y-6 divide-y divide-dashed divide-slate-200">
-              {productRows.map((row, index) => (
-                <div key={index} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-semibold text-slate-600 ${index > 0 ? 'pt-6' : ''}`}>
+              
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-semibold text-slate-600 ${index > 0 ? 'pt-6' : ''}`}>
                   <div className="sm:col-span-1 lg:col-span-3 flex justify-between items-center bg-slate-50 p-2 rounded-lg border">
-                    <span className="text-[11px] uppercase tracking-wider font-mono text-slate-400 font-bold">Item Instance #{index + 1}</span>
-                    {productRows.length > 1 && (
-                      <button type="button" onClick={() => removeProductRow(index)} className="text-red-500 hover:text-red-700 text-[10px] uppercase font-black">Remove Entry Row</button>
-                    )}
+                    
                   </div>
                   <div>
                     <label className="block text-slate-400 text-[10px] uppercase tracking-wider mb-1">Medicine Nomenclature Title</label>
@@ -265,7 +242,7 @@ const handleRemoveEmployee = (orgId, empId, empName) => {
                     <label htmlFor={`coldChain-${index}`} className="text-[11px] text-slate-500 select-none font-bold cursor-pointer leading-tight">Demands Cold Chain (2°C–8°C)</label>
                   </div>
                 </div>
-              ))}
+              
             </div>
 
             <div className="pt-6 border-t border-slate-100 mt-6 flex justify-end">

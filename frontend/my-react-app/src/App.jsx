@@ -18,6 +18,7 @@ import Orders from "./pages/Orders";
 import RegisterOrganization from "./pages/RegisterOrganization";
 import Dashboard from "./pages/Dashboard.jsx";
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import AddProductForm from "./components/AddProductForm.jsx";
 
 function App() {
   return (
@@ -35,10 +36,12 @@ function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/register-org" element={<RegisterOrganization />} />
         <Route path="/register-user" element={<RegisterUser />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/add-product" element={<AddProductForm />} />
         {/*<Route element={<ProtectedRoute allowedRoles={['admin', 'superadmin', 'procurement worker']} />}>
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>*/}
-        <Route path="/dashboard" element={<Dashboard />} />
+        
       </Routes>
       <Footer/>
     </div>

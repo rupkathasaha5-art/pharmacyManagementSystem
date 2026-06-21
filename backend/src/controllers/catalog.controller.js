@@ -1,113 +1,142 @@
-// product.controller.js
 import Product from '../models/Product.model.js';
 import Batch from '../models/Batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 
+// --- 1. ADD PRODUCT ---
 const addProduct = asyncHandler(async (req, res) => {
-    const { name, strength, form, sku, wholesalePrice, manufacturer, description, scheduleClass, requiresColdChain } = req.body;
+    const { 
+        product, 
+        manufacturer, 
+        brand, 
+        strength, 
+        form, 
+        hsn, 
+        salesTax, 
+        purchaseTax 
+    } = req.body;
 
-    // 1. Validate required string/number fields
-    const requiredFields = ['name', 'strength', 'form', 'sku', 'wholesalePrice', 'manufacturer', 'description', 'scheduleClass'];
-    
-    for (const field of requiredFields) {
-        // Check if the field is missing, null, or an empty string
+    const requiredStringFields = ['product', 'hsn'];
+    for (const field of requiredStringFields) {
         if (req.body[field] === undefined || req.body[field] === null || String(req.body[field]).trim() === '') {
             throw new ApiError(400, `${field} is required!!`);
         }
     }
 
-    // 2. Validate boolean field separately (since false is a valid value)
-    if (requiresColdChain === undefined || requiresColdChain === null) {
-         throw new ApiError(400, `requiresColdChain is required!!`);
+    const requiredNumberFields = ['salesTax', 'purchaseTax'];
+    for (const field of requiredNumberFields) {
+        if (req.body[field] === undefined || req.body[field] === null || req.body[field] === '') {
+            throw new ApiError(400, `${field} is required!!`);
+        }
     }
 
-    // 3. Check if product already exists
-    const existingProduct = await Product.findOne({ sku });
+    const existingProduct = await Product.findOne({ product, brand });
     if (existingProduct) {
-        throw new ApiError(409, 'Product with this SKU already exists!!');
+        throw new ApiError(409, 'A product with this name and brand already exists!!');
     }
 
-    // 4. Create the product
     const newProduct = await Product.create({
-        name, strength, form, sku, wholesalePrice, manufacturer, description, scheduleClass, requiresColdChain
+        product, 
+        manufacturer, 
+        brand, 
+        strength, 
+        form, 
+        hsn, 
+        salesTax, 
+        purchaseTax
     });
 
     if (!newProduct) {
         throw new ApiError(500, "Could not register the new product!!"); 
     }
 
-    // 5. Send success response
     return res.status(201).json(
         new ApiResponse(201, newProduct, "Registered new product successfully!!")
     );
 });
 
-const removeBatch=asyncHandler(async(req,res)=>{//removes an entry from the catalog
-    const 
-})
- const getAllCatalogBatches = async (req, res) => {
-    try {
-        const today = new Date();
 
-        const catalogItems = await Product.aggregate([
-            {
-                // 1. Relate Product to its Batches
-                $lookup: {
-                    from: 'Batch', 
-                    localField: '_id',
-                    foreignField: 'productId',
-                    as: 'batchDetails'
-                }
-            },
-            {
-                // 2. Flatten the array so each batch acts as an individual catalog item card
-                $unwind: '$batchDetails'
-            },
-            {
-                // 3. Filter out expired lots or items with zero stock remaining
-                $match: {
-                    'batchDetails.expiryDate': { $gt: today },
-                    $expr: {
-                        $gt: [
-                            { $subtract: ['$batchDetails.totalQuantity', '$batchDetails.reservedQuantity'] },
-                            0
-                        ]
-                    }
-                }
-            },
-            {
-                // 4. Project and clean up fields exactly as needed by the frontend UI cards
-                $project: {
-                    _id: '$batchDetails._id', // The card's unique key is the Batch ID
-                    productId: '$_id',
-                    name: 1,
-                    manufacturer: 1,
-                    form: 1, 
-                    wholesalePrice: 1,
-                    batchNumber: '$batchDetails.batchNumber',
-                    expiryDate: '$batchDetails.expiryDate',
-                    storageZone: '$batchDetails.storageZone',
-                    availableStock: { 
-                        $subtract: ['$batchDetails.totalQuantity', '$batchDetails.reservedQuantity'] 
-                    }
-                }
-            },
-            {
-                // 5. Enforce FEFO globally across the marketplace (soonest to expire shows first)
-                $sort: { expiryDate: 1 }
-            }
-        ]);
+// --- 2. REMOVE BATCH (FIXED) ---
+const removeBatch = asyncHandler(async (req, res) => {
+    // Assuming the batch ID is passed in the URL, e.g., /api/batches/:batchId
+    const { batchId } = req.params;
 
-        res.status(200).json({
-            success: true,
-            count: catalogItems.length,
-            data: catalogItems
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    if (!batchId) {
+        throw new ApiError(400, "Batch ID is required to remove a batch");
     }
-};
 
-export {getAllCatalogBatches,addProduct,removeBatch}
+    const deletedBatch = await Batch.findByIdAndDelete(batchId);
+
+    if (!deletedBatch) {
+        throw new ApiError(404, "Batch not found in the catalog");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, deletedBatch, "Batch successfully removed from the catalog")
+    );
+});
+
+
+// --- 3. GET ALL CATALOG BATCHES (FIXED) ---
+// Wrapped in asyncHandler to match the rest of your architecture
+const getAllCatalogBatches = asyncHandler(async (req, res) => {
+    const today = new Date();
+
+    const catalogItems = await Product.aggregate([
+        {
+            // 1. Relate Product to its Batches
+            $lookup: {
+                from: 'batches', // CRITICAL: Mongoose automatically pluralizes collection names to lowercase (Batch -> batches)
+                localField: '_id',
+                foreignField: 'productId',
+                as: 'batchDetails'
+            }
+        },
+        {
+            // 2. Flatten the array so each batch acts as an individual catalog item card
+            $unwind: '$batchDetails'
+        },
+        {
+            // 3. Filter out expired lots or items with zero stock remaining
+            $match: {
+                'batchDetails.expiryDate': { $gt: today },
+                $expr: {
+                    $gt: [
+                        { $subtract: ['$batchDetails.totalQuantity', '$batchDetails.reservedQuantity'] },
+                        0
+                    ]
+                }
+            }
+        },
+        {
+            // 4. Project fields matching your NEW schema
+            $project: {
+                _id: '$batchDetails._id', 
+                productId: '$_id',
+                product: 1, // FIXED: Was 'name: 1'
+                brand: 1,   // NEW: Added brand
+                manufacturer: 1,
+                form: 1, 
+                strength: 1, // NEW: Added strength
+                batchNumber: '$batchDetails.batchNumber',
+                expiryDate: '$batchDetails.expiryDate',
+                storageZone: '$batchDetails.storageZone',
+                availableStock: { 
+                    $subtract: ['$batchDetails.totalQuantity', '$batchDetails.reservedQuantity'] 
+                }
+            }
+        },
+        {
+            // 5. Enforce FEFO globally across the marketplace
+            $sort: { expiryDate: 1 }
+        }
+    ]);
+
+    // Used your custom ApiResponse class for consistent formatting
+    return res.status(200).json(
+        new ApiResponse(200, catalogItems, "Catalog batches retrieved successfully")
+    );
+});
+
+export { getAllCatalogBatches, addProduct, removeBatch };

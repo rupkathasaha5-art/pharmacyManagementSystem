@@ -17,7 +17,7 @@ app.use(cookieParser());
 
 app.use("/api/v1/users",userRouter);
 app.use("/api/v1/org",orgRouter);
-app.use('api/v1/catalog',catalogRouter);
+app.use("/api/v1/catalog",catalogRouter);
 
 app.use((err, req, res, next) => {
     console.error("ERROR INTERCEPTED:", err.message);

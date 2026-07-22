@@ -57,7 +57,7 @@ const addProduct = asyncHandler(async (req, res) => {
 });
 
 
-// --- 2. REMOVE BATCH (FIXED) ---
+// --- 2. REMOVE BATCH  ---
 const removeBatch = asyncHandler(async (req, res) => {
     // Assuming the batch ID is passed in the URL, e.g., /api/batches/:batchId
     const { batchId } = req.params;

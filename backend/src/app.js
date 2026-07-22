@@ -21,6 +21,16 @@ app.use("/api/v1/catalog",catalogRouter);
 
 app.use((err, req, res, next) => {
     console.error("ERROR INTERCEPTED:", err.message);
+
+    // Multer-specific errors 
+    if (err.name === 'MulterError') {
+        return res.status(400).json({
+            success: false,
+            message: err.message,
+            errors: []
+        });
+    }
+
     const statusCode = err.statusCode || 500;
     return res.status(statusCode).json({
         success: false,

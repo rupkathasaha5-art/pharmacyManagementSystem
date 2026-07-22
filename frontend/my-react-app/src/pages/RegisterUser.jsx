@@ -17,10 +17,11 @@ const RegisterUser = () => {
   const [formData, setFormData] = useState({
     name: '',
     org: passedOrgId, 
+    phone:'',
     email: '',
     password: '',
    
-    role: passedOrgId ? 'admin' : 'procurement worker' 
+    role: passedOrgId ? 'ORG_ADMIN' : '' 
   });
 
   
@@ -29,7 +30,7 @@ const RegisterUser = () => {
       setFormData(prev => ({
         ...prev,
         org: passedOrgId,
-        role: 'admin'
+        role: 'ORG_ADMIN'
       }));
     }
   }, [passedOrgId]);
@@ -111,7 +112,7 @@ const RegisterUser = () => {
   };
 
   // 2. UX Safeguard Guardrail: Block manual navigation to user registration without a corporate connection ID
-  if (currentState === 'register' && !passedOrgId) {
+  if (currentState === 'register' && formData.role==='ORG_ID' && !passedOrgId) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
         <div className="w-full max-w-md bg-white rounded-xl shadow-md border border-slate-100 p-8 space-y-4">
@@ -169,13 +170,12 @@ const RegisterUser = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:border-[#00c2a8] text-sm bg-white font-medium"
-                  placeholder="e.g. Satyaroop Chatterjee"
                 />
               </div>
             )}
 
             {/* Pre-filled and Disabled Corporate Entity Allocation field */}
-            {currentState !== 'login' && (
+            {currentState !== 'login' && passedOrgId && (
               <div className="animate-fadeIn">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Associated Organization</label>
                 <input
@@ -183,6 +183,21 @@ const RegisterUser = () => {
                   type="text"
                   value={passedOrgName} 
                   className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-slate-100 text-slate-500 cursor-not-allowed font-semibold"
+                />
+              </div>
+            )}
+            
+           
+            {currentState !== 'login' && (
+              <div >
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Contact Number</label>
+                <input
+                  required
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:border-[#00c2a8] text-sm bg-white font-medium"
                 />
               </div>
             )}
@@ -197,7 +212,6 @@ const RegisterUser = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:border-[#00c2a8] text-sm bg-white font-medium"
-                placeholder="name@company.com"
               />
             </div>
 
@@ -212,7 +226,6 @@ const RegisterUser = () => {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:border-[#00c2a8] text-sm bg-white font-medium"
                 minLength={8}
-                placeholder="••••••••"
               />
             </div>
             
@@ -221,15 +234,21 @@ const RegisterUser = () => {
               <div className="animate-fadeIn">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">System Access Role</label>
                 <select
-                  disabled
-                  name="role"
-                  value={formData.role}
-                  className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-slate-100 text-slate-500 cursor-not-allowed font-bold appearance-none uppercase tracking-wider text-xs"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="procurement worker">Procurement</option>
-                  <option value="superadmin">SuperAdmin</option>
-                </select>
+  name="role"
+  value={formData.role}
+  onChange={handleInputChange} 
+  disabled={!!passedOrgId} // Only lock the dropdown if they have a passedOrgId
+  className={`w-full px-3 py-2 border rounded text-sm font-bold appearance-none uppercase tracking-wider text-xs ${
+    passedOrgId 
+      ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed' 
+      : 'border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#00c2a8]'
+  }`}
+>
+  <option value="" disabled>-- Select a Role --</option>
+  <option value="ORG_ADMIN">ORG_ADMIN</option>
+  <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+  <option value="DRIVER">DRIVER</option>
+</select>
               </div>
             )}
           </div>
@@ -243,7 +262,7 @@ const RegisterUser = () => {
                 uiState.isLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#00c2a8] hover:bg-teal-600 active:scale-[0.99]'
               }`}
             >
-              {uiState.isLoading ? 'Processing Pipeline...' : (currentState === 'login' ? 'Execute Secure Login' : 'Complete Profile Setup')}
+              {uiState.isLoading ? 'Processing Pipeline...' : (currentState === 'login' ? 'Login' : 'Register')}
             </button>
           </div>
 
@@ -259,7 +278,7 @@ const RegisterUser = () => {
                 </>
               ) : (
                 <>
-                  Already hold credentials?{" "}
+                  Already registered?{" "}
                   <Link to="/login" className="text-[#00c2a8] font-bold hover:underline cursor-pointer">
                     Login Here
                   </Link>

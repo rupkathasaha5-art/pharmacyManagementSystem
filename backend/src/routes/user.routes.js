@@ -1,25 +1,20 @@
-import {Router} from "express";
-import {registerUser,loginUser,getCurrentUser} from "../controllers/user.controller.js";
-//import { upload } from "../middlewares/multer.middleware.js";
+import { Router } from "express";
+import { registerUser, loginUser, getCurrentUser } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-//import { verify } from "jsonwebtoken";
+import { getPendingKycQueue,processKycApplication,downloadOrgLicensePdf } from "../controllers/superAdmin.controller.js";
 
-const router=Router();
+const router = Router();
 
+// --- PUBLIC ROUTES ---
 router.route("/register-user").post(registerUser);
-
 router.route("/login").post(loginUser);
 
-router.route("/current-user").get(verifyJWT,getCurrentUser);
-//secured routes
-/*router.route("/logout").post(verifyJWT,logoutUser);
-router.route("/refresh-token").post(refreshAccessToken);
-router.route("/change-password").post(verifyJWT,changeCurrentPassword);
-router.route("/current-user").post(verify,getCurrentUser);
-router.route("/update-details").patch(verifyJWT,updateAccountDetails);
-router.route("/avatar").patch(verifyJWT,upload.single("avatar"),updateUserAvatar);
-router.route("/cover-image").patch(verifyJWT,upload.single("/coverImage"),updateCoverImage);
-router.route("/c/:username").get(verifyJWT,getUserChannelProfile);*/
+// --- SECURED ROUTES ---
+router.route("/current-user").get(verifyJWT(), getCurrentUser);
 
+// --- SUPER ADMIN KYC ROUTES ---
+router.route("/kyc/pending").get(verifyJWT(["SUPER_ADMIN"]), getPendingKycQueue);
+router.route("/kyc/review/:orgId").patch(verifyJWT(["SUPER_ADMIN"]), processKycApplication);
+router.route("/kyc/download-license/:orgId").get(verifyJWT(["SUPER_ADMIN"]), downloadOrgLicensePdf);
 
 export default router;

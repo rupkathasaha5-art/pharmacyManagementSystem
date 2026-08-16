@@ -12,18 +12,28 @@ const AddProductForm = () => {
     manufacturer: '',
     brand: '',
     product: '',
+    genericName: '',
+    category: '',
     strength: '',
     form: '',
+    packSize: '',
+    scheduleType: 'OTC',
+    storageCondition: '',
     hsn: '',
-    salesTax: '',
-    purchaseTax: ''
+    cgst: '',
+    sgst: '',
+    igst: ''
   });
 
-  const hsnTaxMaster = [
-    { code: '3004', description: 'Standard Medicaments (12%)', rate: 12 },
-    { code: '3002', description: 'Vaccines & Blood (5%)', rate: 5 },
+  // total rate gets split evenly into cgst/sgst for intra-state sales by default.
+  // igst stays 0 unless the admin overrides it for an inter-state scenario
+const hsnTaxMaster = [
+    { code: '3004 (5%)', description: 'General Medicaments (5%)', rate: 5 },
+    { code: '3004 (12%)', description: 'Specified Medicaments — 12% category', rate: 12 },
+    { code: '3002', description: 'Vaccines & Blood Products (5%)', rate: 5 },
     { code: '2106', description: 'Dietary Supplements (18%)', rate: 18 },
-    { code: '3306', description: 'Dental Hygiene (18%)', rate: 18 }
+    { code: '3306', description: 'Dental Hygiene (18%)', rate: 18 },
+    { code: 'EXEMPT', description: 'Life-Saving Drugs (Nil/0%)', rate: 0 }
   ];
 
   const handleChange = (e) => {
@@ -34,11 +44,13 @@ const AddProductForm = () => {
       if (name === 'hsn') {
         const matchedItem = hsnTaxMaster.find((item) => item.code === value);
         if (matchedItem) {
-          newState.salesTax = matchedItem.rate;
-          newState.purchaseTax = matchedItem.rate;
+          newState.cgst = matchedItem.rate / 2;
+          newState.sgst = matchedItem.rate / 2;
+          newState.igst = matchedItem.rate;
         } else {
-          newState.salesTax = '';
-          newState.purchaseTax = '';
+          newState.cgst = '';
+          newState.sgst = '';
+          newState.igst = '';
         }
       }
       return newState;
@@ -50,19 +62,67 @@ const AddProductForm = () => {
       manufacturer: '',
       brand: '',
       product: '',
+      genericName: '',
+      category: '',
       strength: '',
       form: '',
+      packSize: '',
+      scheduleType: 'OTC',
+      storageCondition: '',
       hsn: '',
-      salesTax: '',
-      purchaseTax: ''
+      cgst: '',
+      sgst: '',
+      igst: ''
     });
   };
 
   const callApi = async () => {
     setUiState({ errorMessage: '', successMessage: '' });
+
+    // 1. HSN Validation Check
+    if (formData.hsn) {
+      const isValidHsn = hsnTaxMaster.some(
+        (item) => item.code.toLowerCase() === formData.hsn.trim().toLowerCase()
+      );
+
+      if (!isValidHsn) {
+        setUiState({
+          successMessage: '',
+          errorMessage: `Warning: "${formData.hsn}" is not a recognized HSN code. Please select a valid code from the master list or type EXEMPT.`
+        });
+        return; // Stops execution so the form does not submit
+      }
+    }
+
+    // 2. API Request
     try {
       axios.defaults.withCredentials = true;
-      const { data } = await axios.post(`${backendUrl}/api/v1/catalog/add-product`, formData);
+
+      //clean the HSN code by stripping any display tags like " (5%)" or " (12%)"
+      //  "3004 (12%)" cleanly becomes "3004" 
+      const cleanedHsn = formData.hsn.split(' ')[0];
+
+      //restructure flat form fields into the schema's nested gst object
+      const payload = {
+        product: formData.product,
+        genericName: formData.genericName,
+        brand: formData.brand,
+        manufacturer: formData.manufacturer,
+        category: formData.category,
+        form: formData.form,
+        strength: formData.strength,
+        packSize: formData.packSize,
+        scheduleType: formData.scheduleType,
+        storageCondition: formData.storageCondition,
+        hsn: cleanedHsn, // Uses the cleaned 4-digit code
+        gst: {
+          cgst: Number(formData.cgst) || 0,
+          sgst: Number(formData.sgst) || 0,
+          igst: Number(formData.igst) || 0
+        }
+      };
+
+      const { data } = await axios.post(`${backendUrl}/api/v1/users/add-product`, payload);
       if (data.success) {
         setUiState({
           errorMessage: '',
@@ -172,6 +232,30 @@ const AddProductForm = () => {
               </div>
 
               <div className="flex items-center">
+                <label className="w-1/3 text-sm font-medium text-gray-700">Generic Name</label>
+                <input
+                  type="text"
+                  value={formData.genericName}
+                  onChange={handleChange}
+                  name="genericName"
+                  className="w-2/3 form-input"
+                  placeholder="e.g. Paracetamol"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <label className="w-1/3 text-sm font-medium text-gray-700">Category</label>
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={handleChange}
+                  name="category"
+                  className="w-2/3 form-input"
+                  placeholder="e.g. Analgesic"
+                />
+              </div>
+
+              <div className="flex items-center">
                 <label className="w-1/3 text-sm font-medium text-gray-700">Size/Strength</label>
                 <input
                   type="text"
@@ -179,6 +263,18 @@ const AddProductForm = () => {
                   onChange={handleChange}
                   name="strength"
                   className="w-2/3 form-input"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <label className="w-1/3 text-sm font-medium text-gray-700">Pack Size</label>
+                <input
+                  type="text"
+                  value={formData.packSize}
+                  onChange={handleChange}
+                  name="packSize"
+                  className="w-2/3 form-input"
+                  placeholder="e.g. 10x10, 1x100ml"
                 />
               </div>
 
@@ -222,6 +318,35 @@ const AddProductForm = () => {
                   </optgroup>
                 </select>
               </div>
+
+              <div className="flex items-center">
+                <label className="w-1/3 text-sm font-medium text-gray-700">Schedule Type</label>
+                <select
+                  name="scheduleType"
+                  value={formData.scheduleType}
+                  onChange={handleChange}
+                  className="w-2/3 form-input"
+                >
+                  <option value="OTC">OTC</option>
+                  <option value="H">H</option>
+                  <option value="H1">H1</option>
+                  <option value="X">X</option>
+                  <option value="G">G</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <label className="w-1/3 text-sm font-medium text-gray-700">Storage Condition</label>
+                <input
+                  type="text"
+                  value={formData.storageCondition}
+                  onChange={handleChange}
+                  name="storageCondition"
+                  className="w-2/3 form-input"
+                  placeholder="e.g. Cool & Dry Place, 2-8°C"
+                />
+              </div>
             </div>
 
             {/* RIGHT COLUMN: Taxation */}
@@ -253,26 +378,41 @@ const AddProductForm = () => {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <label className="w-1/3 text-sm font-medium text-gray-700">Sales Tax(%)</label>
+                  <label className="w-1/3 text-sm font-medium text-gray-700">CGST(%)</label>
                   <input
                     type="text"
                     readOnly
-                    value={formData.salesTax}
+                    value={formData.cgst}
                     className="w-2/3 form-input bg-[#FEF9E7] text-[#8a6d00] cursor-not-allowed border-[#F5C518]/60"
                     placeholder="Auto-filled..."
                   />
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <label className="w-1/3 text-sm font-medium text-gray-700">Purchase Tax(%)</label>
+                  <label className="w-1/3 text-sm font-medium text-gray-700">SGST(%)</label>
                   <input
                     type="text"
                     readOnly
-                    value={formData.purchaseTax}
+                    value={formData.sgst}
                     className="w-2/3 form-input bg-[#FEF9E7] text-[#8a6d00] cursor-not-allowed border-[#F5C518]/60"
                     placeholder="Auto-filled..."
                   />
                 </div>
+
+                <div className="flex items-center space-x-2">
+                  <label className="w-1/3 text-sm font-medium text-gray-700">IGST(%)</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={formData.igst}
+                    className="w-2/3 form-input bg-[#FEF9E7] text-[#8a6d00] cursor-not-allowed border-[#F5C518]/60"
+                    placeholder="Auto-filled..."
+                  />
+                </div>
+
+                <p className="text-[11px] text-slate-500 pt-1">
+                  If the there is no tax on the medicine type EXEMPT
+                </p>
               </div>
             </div>
           </div>

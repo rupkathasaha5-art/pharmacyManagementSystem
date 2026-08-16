@@ -17,11 +17,13 @@ import PlaceOrder from "./pages/PlaceOrder";
 import Orders from "./pages/Orders";
 import RegisterOrganization from "./pages/RegisterOrganization";
 import Dashboard from "./pages/Dashboard.jsx";
+import Checkout from "./pages/Checkout.jsx";
 
 // Protected & Admin Modules
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SuperAdminKYC from "./components/SuperAdminKYC.jsx";
 import AddProductForm from "./components/AddProductForm.jsx";
+import AddInventoryForm from "./components/AddInventoryForm.jsx";
 
 function App() {
   return (
@@ -40,20 +42,25 @@ function App() {
         <Route path="/register-user" element={<RegisterUser />} />
         <Route path="/register-org" element={<RegisterOrganization />} />
         
+        {/* --- DEDICATED TOP-LEVEL CHECKOUT ROUTE --- */}
+        <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
+          <Route path="/checkout" element={<Checkout />} />
+        </Route>
+
         {/* --- DASHBOARD & ROLE-BASED SUB-ROUTES --- */}
-        {/* By removing the element={}, this just groups the paths together */}
         <Route path="/dashboard">
           
           {/* Default Dashboard Index */}
           <Route index element={<Dashboard />} />
 
-          {/* 1. SUPER_ADMIN EXCLUSIVE ROUTES */}
+          {/* 1. SUPER_ADMIN ROUTES */}
           <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
             <Route path="kyc" element={<SuperAdminKYC />} />
             <Route path="add-product" element={<AddProductForm />} />
+            <Route path="add-inventory" element={<AddInventoryForm />} />
           </Route>
 
-          {/* 2. ORG_ADMIN (RETAIL CHEMIST) EXCLUSIVE ROUTES */}
+          {/* 2. ORG_ADMIN ROUTES */}
           <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
             <Route path="place-order" element={<PlaceOrder />} />
             <Route path="my-orders" element={<Orders />} />

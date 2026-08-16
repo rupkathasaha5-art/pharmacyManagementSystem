@@ -1,6 +1,6 @@
 import {app} from "./app.js"
 import connectDB from "./db/index.js";
-import { seedSuperAdmin } from "./utils/SeedSuperAdmin.js";
+
 
 connectDB()
 .then(

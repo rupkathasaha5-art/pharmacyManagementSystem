@@ -6,13 +6,14 @@ import { AppContext } from '../context/AppContext.jsx';
 const MENU_CONFIG = [
   // --- SUPER_ADMIN MODULES ---
   { id: 'sa-kyc', name: 'KYC Approvals', path: '/dashboard/kyc', roles: ['SUPER_ADMIN'], icon: '🛡️' },
-  { id: 'sa-inv', name: 'Product & Inventory', path: '/dashboard/inventory', roles: ['SUPER_ADMIN'], icon: '📦' },
+  { id: 'sa-prod', name: 'Add Product', path: '/dashboard/add-product', roles: ['SUPER_ADMIN'], icon: '📦' },
+  { id: 'sa-inv', name: 'Add Inventory', path: '/dashboard/add-inventory', roles: ['SUPER_ADMIN'], icon: '🧪' },
   { id: 'sa-ord', name: 'Order Control Tower', path: '/dashboard/admin-orders', roles: ['SUPER_ADMIN'], icon: '📡' },
   { id: 'sa-fin', name: 'Accounts Receivable', path: '/dashboard/finance', roles: ['SUPER_ADMIN'], icon: '💼' },
   
   // --- ORG_ADMIN MODULES ---
   { id: 'oa-fin', name: 'Financial HUD', path: '/dashboard/wallet', roles: ['ORG_ADMIN'], icon: '💳' },
-  { id: 'oa-cat', name: 'Procurement (Order Now)', path: '/dashboard/catalog', roles: ['ORG_ADMIN'], icon: '🛒' },
+  { id: 'oa-cat', name: 'Procurement (Order Now)', path: '/catalog', roles: ['ORG_ADMIN'], icon: '🛒' },
   { id: 'oa-ord', name: 'Order Tracking & OTPs', path: '/dashboard/my-orders', roles: ['ORG_ADMIN'], icon: '🚚' },
   { id: 'oa-pro', name: 'Compliance Profile', path: '/dashboard/profile', roles: ['ORG_ADMIN'], icon: '🏢' },
 
@@ -105,21 +106,7 @@ const DashboardLayout = () => {
             {location.pathname === '/dashboard' ? 'Dashboard Overview' : location.pathname.split('/').pop().replace('-', ' ')}
           </h1>
           
-          <div className="flex items-center space-x-6">
-            {/* Show dynamic cart badge ONLY for ORG_ADMIN from AppContext */}
-            {userRole === 'ORG_ADMIN' && (
-              <button 
-                onClick={() => navigate('/dashboard/cart')}
-                className="relative p-2 text-teal-600 hover:text-teal-800 transition-colors"
-              >
-                🛒
-                {cartTotalItems > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-teal-900 transform translate-x-1/4 -translate-y-1/4 bg-yellow-400 rounded-full">
-                    {cartTotalItems}
-                  </span>
-                )}
-              </button>
-            )}
+          
             
             <div className="flex items-center space-x-3 border-l pl-6 border-slate-200">
               <div className="text-right">
@@ -130,7 +117,6 @@ const DashboardLayout = () => {
                 {userData?.name?.charAt(0).toUpperCase()}
               </div>
             </div>
-          </div>
         </header>
 
         {/* DYNAMIC CONTENT ROUTER OR DEFAULT DASHBOARD */}
@@ -152,7 +138,8 @@ const DashboardWelcome = ({ role, name }) => {
   const roleFunctions = {
     SUPER_ADMIN: [
       { title: 'Approve KYC Registrations', desc: 'Review drug licenses and unlock ₹50k credit limits for pending chemists.' },
-      { title: 'Update Catalog & Inventory', desc: 'Add new medicines, adjust wholesale pricing, and track expiration batches.' },
+      { title: 'Add Product', desc: 'Register new medicines to the catalog with pricing, tax, and classification details.' },
+      { title: 'Add Inventory', desc: 'Log new stock batches against existing products, tracking expiry and quantity.' },
       { title: 'Order Control Tower', desc: 'Monitor live checkout carts, assign orders to drivers, and track route status.' },
       { title: 'Financial Reconciliation', desc: 'View Accounts Receivable, overdue Net-14 invoices, and daily Razorpay settlements.' }
     ],

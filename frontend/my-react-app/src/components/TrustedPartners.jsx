@@ -1,7 +1,7 @@
 import React from 'react';
 
 const TrustedPartners = () => {
-  // 8 realistic, high-quality B2B pharmaceutical client profiles
+  
   const organizations = [
     { id: 1, name: "Apex Global Health", type: "Hospital Network" },
     { id: 2, name: "MedX Pharmacy", type: "Retail Chain" },
@@ -37,7 +37,7 @@ const TrustedPartners = () => {
               key={org.id}
               className="group relative bg-white border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md hover:border-teal-500/30 transition-all duration-300"
             >
-              {/* Minimalist Medical Geometric Placeholder Logo */}
+              {/* Medical Geometric Placeholder Logo */}
               <div className="mb-3 h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors duration-300">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0V9a2 2 0 012-2h2a2 2 0 012 2v12m-6 0h6" />

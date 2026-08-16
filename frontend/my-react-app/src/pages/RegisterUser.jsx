@@ -111,7 +111,7 @@ const RegisterUser = () => {
     }
   };
 
-  // 2. UX Safeguard Guardrail: Block manual navigation to user registration without a corporate connection ID
+  // 2.block manual navigation to user registration without a corporate connection ID
   if (currentState === 'register' && formData.role==='ORG_ID' && !passedOrgId) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
@@ -144,14 +144,14 @@ const RegisterUser = () => {
         
         <form onSubmit={handleFormSubmit} className="p-8 space-y-6">
           
-          {/* Dynamic Error Messaging Output Block */}
+          {/* Dynamic Error Messaging */}
           {uiState.errorMessage && (
             <div className="p-3 bg-red-50 border-l-4 border-red-600 rounded text-sm text-red-800 font-medium">
               <strong>Action Blocked:</strong> {uiState.errorMessage}
             </div>
           )}
 
-          {/* Dynamic Success Messaging Output Block */}
+          {/* Dynamic Success Messaging */}
           {uiState.successMessage && (
             <div className="p-3 bg-emerald-50 border-l-4 border-emerald-600 rounded text-sm text-emerald-800 font-medium">
               <strong>Authorized:</strong> {uiState.successMessage}
@@ -262,7 +262,7 @@ const RegisterUser = () => {
                 uiState.isLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#00c2a8] hover:bg-teal-600 active:scale-[0.99]'
               }`}
             >
-              {uiState.isLoading ? 'Processing Pipeline...' : (currentState === 'login' ? 'Login' : 'Register')}
+              {uiState.isLoading ? 'Processing...' : (currentState === 'login' ? 'Login' : 'Register')}
             </button>
           </div>
 

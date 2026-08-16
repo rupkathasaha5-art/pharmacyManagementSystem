@@ -12,11 +12,11 @@ const userSchema = new Schema(
       index: true
     },
     org: {
-      // Uncommented the ObjectId reference to properly link to your Org schema
+      
       type: Schema.Types.ObjectId,
       ref: 'Org',
-      // Conditionally required - only ORG_ADMIN accounts need to be linked to an Org.
-      // Super Admins and Drivers don't belong to a retail Org!
+      // Conditionally required - only ORG_ADMIN accounts need to be linked to an Org
+      // Super Admins and Drivers don't belong to a retail Org
       required: function () {
         return this.role === 'ORG_ADMIN';
       }
@@ -57,9 +57,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-// NOTE: this hook is async, so Mongoose treats it as promise-style middleware
-// and does NOT supply a real `next` callback. Don't declare or call `next` here -
-// just await your logic and throw on error; Mongoose handles both automatically.
+
 userSchema.pre("save", async function() {
   if (this.isModified("password")) {
     this.password = await bcrypt.hash(this.password, 10);

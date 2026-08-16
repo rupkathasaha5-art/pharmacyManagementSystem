@@ -8,7 +8,6 @@ const RegisterOrganization = () => {
   const { backendUrl } = useContext(AppContext);
   const navigate = useNavigate(); 
 
-  // Unified state tracking the simplified business payload structure
   const [formData, setFormData] = useState({
     organizationName: '',
     taxId: '',
@@ -22,12 +21,11 @@ const RegisterOrganization = () => {
     licenseExpiryDate: ''
   });
 
-  // Holds the actual PDF File object selected by the user (kept separate from
-  // formData since a File object doesn't belong in a flat text-only state)
+  
   const [licenseFile, setLicenseFile] = useState(null);
   const [fileError, setFileError] = useState('');
 
-  // IMPROVEMENT 1: Added 'isRedirecting' to prevent double-submissions during navigation delay
+  //added 'isRedirecting' to prevent double-submissions during navigation delay
   const [uiState, setUiState] = useState({
     isLoading: false,
     isRedirecting: false,
@@ -60,7 +58,7 @@ const RegisterOrganization = () => {
       return;
     }
 
-    // Simple 10MB cap so uploads stay reasonable
+    // 10MB cap on uploads
     const MAX_SIZE_BYTES = 10 * 1024 * 1024;
     if (file.size > MAX_SIZE_BYTES) {
       setFileError('File is too large. Please upload a PDF under 10MB.');
@@ -75,16 +73,13 @@ const RegisterOrganization = () => {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
-    // Guard: documentUrl is required on the backend, and the only way to get
-    // one is by uploading the actual PDF for the server to store and link.
+    //documentUrl is required on the backend, and the only way to get one is by uploading the actual PDF for the server to store and link.
     if (!licenseFile) {
       setFileError('Please upload your Drug License PDF before submitting.');
       return;
     }
 
     setUiState({ isLoading: true, isRedirecting: false, errorMessage: '', successMessage: '' });
-
-    // Restructuring local flat parameters into the targeted organization API schema
     const organizationPayload = {
       organization: {
         name: formData.organizationName,
@@ -100,8 +95,7 @@ const RegisterOrganization = () => {
         license: {
           number: formData.licenseNumber,
           expiryDate: formData.licenseExpiryDate
-          // documentUrl is NOT set here - the backend generates it after
-          // storing the uploaded PDF (e.g. S3/Cloudinary) and saves it on the Org record
+         
         }
       }
     };
@@ -117,15 +111,15 @@ const RegisterOrganization = () => {
       // 1. Fire registration request directly to the backend URL port
       const response = await axios.post(`${backendUrl}/api/v1/org/register-org`, multipartPayload);
       
-      // 2. Safely parse structured ApiResponse parameters
+      // 2. parse structured ApiResponse parameters
       if (response.data && response.data.success) {
-        // Extract the unique orgId returned by your backend controller execution
+        // Extract the unique orgId returned by kend controller execution
         const { orgId } = response.data.data;
 
         // Capture the explicit company name value right now before resetting inputs
         const explicitOrgName = formData.organizationName;
 
-        // IMPROVEMENT 1: Set isRedirecting to true so the UI stays locked during countdown
+        
         setUiState({
           isLoading: false,
           isRedirecting: true,
@@ -133,7 +127,7 @@ const RegisterOrganization = () => {
           successMessage: 'Corporate data verified! Redirecting to setup primary admin profile...'
         });
         
-        // Clear input parameters cleanly
+        //clear input parameters cleanly
         setFormData({
           organizationName: '', taxId: '', corporatePhone: '', corporateEmail: '',
           street: '', city: '', state: '', postalCode: '',
@@ -141,7 +135,7 @@ const RegisterOrganization = () => {
         });
         setLicenseFile(null);
 
-        // 3. Programmatically transition them to create their user profile account
+        // 3. transition them to create their user profile account
         setTimeout(() => {
           navigate('/register-user', { 
             state: { 
@@ -228,7 +222,7 @@ const RegisterOrganization = () => {
                 <input required type="date" name="licenseExpiryDate" value={formData.licenseExpiryDate} onChange={handleInputChange} disabled={uiState.isRedirecting} className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:border-teal-600 disabled:bg-slate-100 text-sm" />
               </div>
 
-              {/* NEW: License PDF upload */}
+              {/* License PDF upload */}
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Upload Your License PDF</label>
                 <input
@@ -278,7 +272,7 @@ const RegisterOrganization = () => {
 
           {/* Form Actions */}
           <div className="flex justify-end pt-4 border-t border-slate-200">
-            {/* IMPROVEMENT 2 & 1: Smoother hover transition + dynamic text handling redirect state */}
+           
             <button
               type="submit"
               disabled={uiState.isLoading || uiState.isRedirecting}

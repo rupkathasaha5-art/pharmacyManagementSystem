@@ -9,7 +9,7 @@ export const getPendingKycQueue = asyncHandler(async (req, res) => {
 
     const pendingOrgs = await Org.find({ status: "pending" })
         .sort({ createdAt: -1 })
-        .select("-creditProfile.currentOutstanding"); // Omit sensitive live financial data if not needed here
+        .select("-creditProfile.currentOutstanding"); 
 
     if (!pendingOrgs || pendingOrgs.length === 0) {
         return res.status(200).json(
@@ -34,13 +34,12 @@ export const downloadOrgLicensePdf = asyncHandler(async (req, res) => {
        const pdfUrl = org.organization.license.documentUrl;
        const orgName = org.organization.name.replace(/[^a-zA-Z0-9]/g, "_");
 
-       // Stream the file from Cloudinary through your backend to the client with download headers
+
        let response;
        try {
            response = await axios.get(pdfUrl, { responseType: 'stream' });
        } catch (fetchError) {
-           // Most common cause: Cloudinary's "PDF and ZIP delivery" restriction is
-           // still enabled on the account, so it 401s even on a valid secure_url.
+           
            const upstreamStatus = fetchError.response?.status;
            if (upstreamStatus === 401 || upstreamStatus === 403) {
                throw new ApiError(502, "Could not retrieve the license file from storage. Check Cloudinary's PDF/raw file delivery setting.");
@@ -51,7 +50,7 @@ export const downloadOrgLicensePdf = asyncHandler(async (req, res) => {
        res.setHeader('Content-Type', 'application/pdf');
        res.setHeader('Content-Disposition', `attachment; filename="${orgName}_Drug_License.pdf"`);
 
-       // Guard against the stream breaking mid-transfer (e.g. network drop)
+       
        response.data.on('error', (streamError) => {
            console.error("License PDF stream error:", streamError.message);
            if (!res.headersSent) {
@@ -89,7 +88,7 @@ export const processKycApplication = asyncHandler(async (req, res) => {
         throw new ApiError(400, `This organization has already been processed. Current status: ${org.status}`);
     }
 
-    // 4. If rejecting, ensure a reason is provided (optional but good practice)
+    // 4. If rejecting
     if (action === "rejected" && (!statusRemarks || statusRemarks.trim() === "")) {
         throw new ApiError(400, "A reason for rejection must be provided in 'statusRemarks'.");
     }
@@ -98,10 +97,7 @@ export const processKycApplication = asyncHandler(async (req, res) => {
     org.status = action;
     org.statusRemarks = action === "rejected" ? statusRemarks.trim() : null;
 
-    // Optional: If approving, you might want to automatically set their credit limit here,
-    // or let it rely on the schema default (50000).
-    // if (action === "approved") { org.creditProfile.creditLimit = 100000; }
-
+  
     const updatedOrg = await org.save({ validateBeforeSave: false }); // Bypass full validation since we only updated specific fields
 
     return res.status(200).json(
@@ -117,6 +113,3 @@ export const processKycApplication = asyncHandler(async (req, res) => {
     );
 });
 
-// Future Super Admin Controllers can be added below:
-// export const getSystemMetrics = asyncHandler(...)
-// export const forceDeactivateUser = asyncHandler(...)

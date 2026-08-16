@@ -10,7 +10,7 @@ const addressSchema = new mongoose.Schema({
 }, { _id: false });
 
 const licenseSchema = new mongoose.Schema({
-  // The official Form 20/21 CDSCO Drug License Number
+ 
   number: { type: String, required: true, trim: true },
   // Expiry date (Super Admin uses this to verify legal trading status)
   expiryDate: { type: Date, required: true },
@@ -31,14 +31,14 @@ const organizationProfileSchema = new mongoose.Schema({
 
 
 const creditProfileSchema = new mongoose.Schema({
-  // Maximum allowable unpaid balance (Defaults to ₹50,000 for new signups)
+  // maximum allowable unpaid balance (Defaults to 50,000 for new signups)
   creditLimit: { 
     type: Number, 
     required: true, 
     default: 50000, 
     min: 0 
   },
-  // Active debt (Updated ONLY via ACID transactions matching the chemist_ledger_entries table)
+  // active debt (Updated ONLY via ACID transactions matching the chemist_ledger_entries table)
   currentOutstanding: { 
     type: Number, 
     required: true, 
@@ -51,13 +51,13 @@ const creditProfileSchema = new mongoose.Schema({
     required: true, 
     default: 14     
   },
-  // True if an invoice exceeds 15 days overdue. Hard-blocks the "Bill to Trade Credit" checkout button.
+  // True if an invoice exceeds 15 days overdue. Hard-blocks the "Bill to Trade Credit" checkout button
   isCreditFrozen: { 
     type: Boolean, 
     required: true, 
     default: false  
   },
-  // Automated reason for freeze (e.g., "Invoice #8841 is 16 days overdue")
+  // Automated reason for freeze 
   freezeReason: { 
     type: String, 
     trim: true, 
@@ -79,12 +79,10 @@ const settlementProfileSchema = new mongoose.Schema({
 
 
 const orgSchema = new mongoose.Schema({
-  // Core Business Identity
   organization: { 
     type: organizationProfileSchema, 
     required: true 
   },
-  // Financial Wallet (Auto-populates defaults on creation)
   creditProfile: { 
     type: creditProfileSchema, 
     default: () => ({}) 
@@ -94,14 +92,14 @@ const orgSchema = new mongoose.Schema({
     type: settlementProfileSchema,
     default: () => ({})
   },
-  // Legal KYC Gateway: Controls access to the storefront catalog and pricing.
+  // legal KYC Gateway: controls access to the catalog and pricing
   // 'pending' = Locked. 'approved' = Trading Live. 'rejected' = Uploads denied.
   status: { 
     type: String, 
     enum: ['pending', 'approved', 'rejected'], 
     default: 'pending' 
   },
-  // Admin feedback shown to chemist if status === 'rejected' (e.g., "Form 20 PDF is blurry")
+  // Admin feedback shown to chemist if status === 'rejected' 
   statusRemarks: { 
     type: String, 
     trim: true, 
@@ -109,12 +107,12 @@ const orgSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// ─── 5. PERFORMANCE INDEXES ──────────────────────────────────────────────────
 
-// Optimizes Super Admin queries for "Blocked Accounts"
+
+//optimizes Super Admin queries for "Blocked Accounts"
 orgSchema.index({ "creditProfile.isCreditFrozen": 1 });
 
-// Optimizes Accounts Receivable (A/R) dashboard sorting (Highest debt to lowest)
+// optimizes Accounts Receivable dashboard sorting (Highest debt to lowest)
 orgSchema.index({ "creditProfile.currentOutstanding": -1 });
 
 // Ensure fast lookups when a Razorpay Webhook hits

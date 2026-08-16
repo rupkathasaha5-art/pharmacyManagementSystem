@@ -40,9 +40,6 @@ const SuperAdminKYC = () => {
   const handleDownloadPdf = async (orgId, orgName) => {
     setDownloadingId(orgId);
     try {
-      // Auth here rides on the httpOnly accessToken cookie set at login
-      // (withCredentials), not a manually-attached Authorization header -
-      // there is no token in localStorage in this app's login flow.
       const response = await axios.get(
         `${backendUrl}/api/v1/users/kyc/download-license/${orgId}`,
         {
@@ -190,13 +187,13 @@ const SuperAdminKYC = () => {
                         onClick={() => handleReviewAction(org._id, 'approved')}
                         className="flex-1 md:flex-none px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded shadow-sm transition-colors"
                       >
-                        Approve KYC ✓
+                        Approve KYC 
                       </button>
                       <button 
                         onClick={() => setRejectionModalId(org._id)}
                         className="flex-1 md:flex-none px-5 py-2 bg-slate-100 hover:bg-red-50 text-red-700 text-sm font-bold rounded transition-colors border border-slate-200"
                       >
-                        Reject ✕
+                        Reject 
                       </button>
                     </div>
                   )}

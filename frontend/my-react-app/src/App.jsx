@@ -18,6 +18,7 @@ import Orders from "./pages/Orders";
 import RegisterOrganization from "./pages/RegisterOrganization";
 import Dashboard from "./pages/Dashboard.jsx";
 import Checkout from "./pages/Checkout.jsx";
+import PaymentPage from './pages/PaymentPage.jsx';
 
 // Protected & Admin Modules
 import ProtectedRoute from './components/ProtectedRoute.jsx';

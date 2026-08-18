@@ -112,4 +112,3 @@ export const processKycApplication = asyncHandler(async (req, res) => {
         )
     );
 });
-

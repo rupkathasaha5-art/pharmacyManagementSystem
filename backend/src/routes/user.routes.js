@@ -22,5 +22,4 @@ router.route("/kyc/download-license/:orgId").get(verifyJWT(["SUPER_ADMIN"]), dow
 router.route("/add-product").post(verifyJWT(["SUPER_ADMIN"]),addProduct);
 router.route("/add-inventory").post(verifyJWT(["SUPER_ADMIN"]),addInventory);
 
-
 export default router;

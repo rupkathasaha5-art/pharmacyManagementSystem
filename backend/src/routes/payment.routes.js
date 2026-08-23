@@ -1,13 +1,15 @@
 import { Router } from "express";
-import { createPaymentIntent, handleStripeWebhook } from "../controllers/payment.controller.js";
+import { createPaymentIntent, verifyPayment,createSettlementIntent,verifySettlement } from "../controllers/payment.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-// Webhook listener (body is already parsed as Buffer by app.js)
-router.post("/webhook", handleStripeWebhook);
-
 // Protected client intent creation
-router.post("/create-intent", verifyJWT, createPaymentIntent);
+router.post("/create-intent", verifyJWT(['ORG_ADMIN']), createPaymentIntent);
 
+// Protected payment verification
+router.post("/verify", verifyJWT(['ORG_ADMIN']), verifyPayment);
+
+router.post("/settlement/create-intent", verifyJWT(['ORG_ADMIN']), createSettlementIntent);
+router.post("/settlement/verify", verifyJWT(['ORG_ADMIN']), verifySettlement);
 export default router;

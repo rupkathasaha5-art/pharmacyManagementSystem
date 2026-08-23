@@ -58,12 +58,27 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: [0, 'Order total cannot be negative']
   },
-  status: {
+  paymentMethod: {
     type: String,
-    enum: ['placed', 'invoiced', 'delivered', 'cancelled'],
-    default: 'placed'
+    enum: ['net_14', 'immediate'],
+    required: [true, 'Payment method is required']
   },
-  
+  status: {
+  type: String,
+  // pending_payment: immediate-payment order created, awaiting Stripe confirmation
+  // placed: confirmed order (credit approved, or payment verified) — ready for fulfillment
+  // out_for_delivery: driver has picked up the order
+  // delivered: driver confirmed drop-off via OTP
+  // cancelled: cancelled by ORG_ADMIN (or system, for abandoned pending_payment orders)
+  enum: ['pending_payment', 'placed', 'out_for_delivery', 'delivered', 'cancelled'],
+  default: 'placed'
+  },
+  // Tracks whether THIS specific order's balance has been paid off via credit
+// settlement — independent of fulfillment status. Needed because org-level
+// currentOutstanding alone can't tell you which invoice(s) it corresponds to.
+creditSettled: { type: Boolean, default: false },
+creditSettledAt: { type: Date, default: null },
+amountSettled: { type: Number, default: 0, min: 0 }, // running total paid toward this orde
   invoiceNumber: {
     type: String,
     trim: true,
@@ -75,8 +90,16 @@ const orderSchema = new mongoose.Schema({
   },
   dueDate: {
     type: Date
-  }
-}, { timestamps: true });
+  },
+  deliveryOtp: { type: String, select: false },       // hashed, never returned by default
+  deliveryOtpExpiresAt: { type: Date, select: false },
+  assignedDriver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  outForDeliveryAt: { type: Date },
+  deliveredAt: { type: Date },
+  cancelledAt: { type: Date },
+  cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  cancellationReason: { type: String, trim: true }
+  }, { timestamps: true });
 
 orderSchema.index({ buyerOrg: 1, status: 1 });
 orderSchema.index({ createdAt: -1 });

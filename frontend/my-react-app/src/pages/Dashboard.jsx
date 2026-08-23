@@ -8,8 +8,8 @@ const MENU_CONFIG = [
   { id: 'sa-kyc', name: 'KYC Approvals', path: '/dashboard/kyc', roles: ['SUPER_ADMIN'], icon: '🛡️' },
   { id: 'sa-prod', name: 'Add Product', path: '/dashboard/add-product', roles: ['SUPER_ADMIN'], icon: '📦' },
   { id: 'sa-inv', name: 'Add Inventory', path: '/dashboard/add-inventory', roles: ['SUPER_ADMIN'], icon: '🧪' },
-  { id: 'sa-ord', name: 'Order Control Tower', path: '/dashboard/admin-orders', roles: ['SUPER_ADMIN'], icon: '📡' },
-  { id: 'sa-fin', name: 'Accounts Receivable', path: '/dashboard/finance', roles: ['SUPER_ADMIN'], icon: '💼' },
+  { id: 'sa-ord', name: 'Order Control Tower', path: '/dashboard/track-orders', roles: ['SUPER_ADMIN'], icon: '📡' },
+  { id: 'sa-fin', name: 'Accounts Receivable', path: '/dashboard/receivables', roles: ['SUPER_ADMIN'], icon: '💼' },
   
   // --- ORG_ADMIN MODULES ---
   { id: 'oa-fin', name: 'Financial HUD', path: '/dashboard/wallet', roles: ['ORG_ADMIN'], icon: '💳' },

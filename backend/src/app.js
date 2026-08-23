@@ -24,8 +24,7 @@ app.use(
   })
 );
 
-// 1. Stripe Webhook Raw Buffer (Must be placed before express.json)
-app.use("/api/v1/payments/webhook", express.raw({ type: "application/json" }));
+
 
 // 2. Standard Parsers for all other endpoints
 app.use(express.json({ limit: "16kb" }));
@@ -35,7 +34,7 @@ app.use(cookieParser());
 
 // 3. API Routes
 app.use("/api/v1/users", userRouter);
-app.use("/api/v1/users", cartRouter); // Recommended: Give cart its own dedicated prefix
+app.use("/api/v1/users", cartRouter); 
 app.use("/api/v1/org", orgRouter);
 app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/orders", orderRouter);

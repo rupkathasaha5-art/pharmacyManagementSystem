@@ -1,6 +1,7 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext.jsx';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const Checkout = () => {
   const { 
@@ -11,31 +12,55 @@ const Checkout = () => {
     setCart 
   } = useContext(AppContext);
 
+  const navigate = useNavigate();
+
   const [paymentMethod, setPaymentMethod] = useState('net_14');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSettling, setIsSettling] = useState(false);
   const [orderComplete, setOrderComplete] = useState(null);
+  const [isLoadingCart, setIsLoadingCart] = useState(true);
 
-  if (!userData) {
+  useEffect(() => {
+    const fetchServerCart = async () => {
+      try {
+        const response = await axios.get(`${backendUrl}/api/v1/users/cart`, { withCredentials: true });
+        if (response.data && response.data.success) {
+          const fetchedItems = response.data.data?.items || response.data.data || [];
+          setCart(fetchedItems);
+        }
+      } catch (error) {
+        console.error("Failed to fetch cart from server:", error);
+      } finally {
+        setIsLoadingCart(false);
+      }
+    };
+
+    fetchServerCart();
+  }, [backendUrl, setCart]);
+
+  if (!userData || isLoadingCart) {
     return (
       <div className="max-w-4xl mx-auto p-12 text-center text-slate-400 font-medium">
-        Loading organization billing and credit profile...
+        Loading organization profile and cart contents...
       </div>
     );
   }
 
-  // 1. Resolve Organization Object & Nested Subdocuments
   const activeOrg = userData.org || userData.organization || {};
   const orgDetails = activeOrg.organization || activeOrg;
   const orgName = orgDetails.name || "Apex Global Health";
   const gstin = orgDetails.taxId || "TIN-88291-XYZ";
   const creditProfile = activeOrg.creditProfile || {};
 
-  // 2. Financial Metrics Calculation
-  const subtotal = (cart || []).reduce((acc, item) => acc + ((item.salesRate || 0) * (item.orderQuantity || 1)), 0);
-  const taxAmount = subtotal * 0.12; // 12% GST standard
+  const safeCart = cart || [];
+  const subtotal = safeCart.reduce((acc, item) => {
+    const price = item.salesRate || item.price || 0;
+    const qty = item.orderQuantity || item.quantity || 1;
+    return acc + (price * qty);
+  }, 0);
+  const taxAmount = subtotal * 0.12;
   const totalAmount = subtotal + taxAmount;
 
-  // 3. Real-time Credit Capacity Checks
   const creditLimit = creditProfile.creditLimit ?? 50000;
   const currentOutstanding = creditProfile.currentOutstanding ?? 0;
   const availableCredit = Math.max(0, creditLimit - currentOutstanding);
@@ -44,17 +69,37 @@ const Checkout = () => {
   const isNetTermsEligible = (activeOrg.status === 'approved' || userData.status === 'approved') && !isCreditFrozen;
   const creditDays = creditProfile.creditDays || 14;
 
+  // Credit option is only genuinely selectable when not frozen and eligible.
+  // Insufficient-credit is still selectable (so the user can see the shortfall),
+  // but frozen accounts are hard-blocked from even choosing this option.
+  const isCreditOptionDisabled = isCreditFrozen || !isNetTermsEligible;
+
   const calculateNetDueDate = () => {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + creditDays);
-    return dueDate.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    return dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  // 4. Place Order & Sync State
+  const handleSettleBalance = async () => {
+    setIsSettling(true);
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/v1/payments/settlement/create-intent`,
+        {},
+        { withCredentials: true }
+      );
+      if (response.data?.data) {
+        // Navigate to a dedicated settlement payment page (mirrors PaymentPage.jsx,
+        // but pays off currentOutstanding instead of a specific order)
+        navigate('/settle-credit');
+      }
+    } catch (error) {
+      alert(`Could not start settlement: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (paymentMethod === 'net_14' && (!isNetTermsEligible || !isCreditSufficient)) {
       alert("Order cannot be processed on credit terms due to credit line constraints or account status.");
@@ -66,7 +111,7 @@ const Checkout = () => {
     try {
       const response = await axios.post(
         `${backendUrl}/api/v1/orders/checkout`, 
-        {}, 
+        { paymentMethod }, 
         { withCredentials: true }
       );
       
@@ -75,26 +120,31 @@ const Checkout = () => {
         const orderInfo = payloadData?.order || payloadData;
         const freshOrg = payloadData?.updatedOrg;
 
-        setOrderComplete(orderInfo.invoiceNumber || orderInfo._id);
-        setCart([]);
+        if (paymentMethod === 'immediate') {
+          navigate(`/payment/${orderInfo._id}`); 
+        } else {
+          setCart([]);
+          localStorage.removeItem('cart');
 
-        // Instant frontend state synchronization
-        if (setUserData) {
-          setUserData(prev => {
-            const orgKey = prev?.org ? 'org' : 'organization';
-            const updatedUser = {
-              ...prev,
-              [orgKey]: freshOrg || {
-                ...activeOrg,
-                creditProfile: {
-                  ...creditProfile,
-                  currentOutstanding: currentOutstanding + totalAmount
+          if (setUserData) {
+            setUserData(prev => {
+              const orgKey = prev?.org ? 'org' : 'organization';
+              const updatedUser = {
+                ...prev,
+                [orgKey]: freshOrg || {
+                  ...activeOrg,
+                  creditProfile: {
+                    ...creditProfile,
+                    currentOutstanding: currentOutstanding + totalAmount
+                  }
                 }
-              }
-            };
-            localStorage.setItem("userData", JSON.stringify(updatedUser));
-            return updatedUser;
-          });
+              };
+              localStorage.setItem("userData", JSON.stringify(updatedUser));
+              return updatedUser;
+            });
+          }
+
+          setOrderComplete(orderInfo.invoiceNumber || orderInfo._id);
         }
       }
     } catch (error) {
@@ -134,11 +184,9 @@ const Checkout = () => {
       <p className="text-xs text-slate-400 mb-8">Review items, verify credit limits, and confirm commercial terms.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Organization & Payment Terms */}
+
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* Purchasing Entity Card */}
+
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Purchasing Entity</h3>
             <div className="flex justify-between items-center text-sm">
@@ -152,18 +200,43 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Payment Terms Selector */}
+          {/* NEW: Frozen-credit banner with a direct path to pay it off */}
+          {isCreditFrozen && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+              <h3 className="text-sm font-bold text-red-700 mb-1">⚠ Trade Credit Frozen</h3>
+              <p className="text-xs text-red-600 mb-3">
+                {creditProfile?.freezeReason || "Outstanding balance overdue past payment terms."}
+              </p>
+              <div className="flex justify-between items-center text-xs bg-white p-3 rounded-lg border border-red-200 mb-3">
+                <span className="text-slate-500">Amount to unlock trade credit:</span>
+                <strong className="text-red-600 text-sm">
+                  ₹{currentOutstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </strong>
+              </div>
+              <button
+                onClick={handleSettleBalance}
+                disabled={isSettling}
+                className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold text-xs uppercase tracking-wider rounded-lg"
+              >
+                {isSettling ? 'Starting Payment...' : `Pay ₹${currentOutstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })} to Unlock Credit`}
+              </button>
+            </div>
+          )}
+
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Payment Terms & Method</h3>
 
             <div className="space-y-3">
-              
-              {/* Option 1: Net Trade Credit */}
+
               <label 
-                className={`flex items-start justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === 'net_14' ? 'border-[#009688] bg-[#f4fbf9]' : 'border-slate-200 hover:border-slate-300'
+                className={`flex items-start justify-between p-4 rounded-xl border-2 transition-all ${
+                  isCreditOptionDisabled 
+                    ? 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60' 
+                    : paymentMethod === 'net_14' 
+                      ? 'border-[#009688] bg-[#f4fbf9] cursor-pointer' 
+                      : 'border-slate-200 hover:border-slate-300 cursor-pointer'
                 }`}
-                onClick={() => setPaymentMethod('net_14')}
+                onClick={() => !isCreditOptionDisabled && setPaymentMethod('net_14')}
               >
                 <div className="flex gap-3">
                   <input
@@ -171,6 +244,7 @@ const Checkout = () => {
                     name="paymentMethod"
                     value="net_14"
                     checked={paymentMethod === 'net_14'}
+                    disabled={isCreditOptionDisabled}
                     onChange={() => setPaymentMethod('net_14')}
                     className="mt-1 accent-[#009688]"
                   />
@@ -179,7 +253,7 @@ const Checkout = () => {
                     <p className="text-xs text-slate-500 mt-0.5">
                       Pay after delivery. Settlement due: <strong>{calculateNetDueDate()}</strong>.
                     </p>
-                    
+
                     <div className="mt-3 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Available Trade Credit:</span>
@@ -187,14 +261,14 @@ const Checkout = () => {
                           ₹{availableCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </strong>
                       </div>
-                      {!isCreditSufficient && (
+                      {!isCreditFrozen && !isCreditSufficient && (
                         <p className="text-red-500 font-bold pt-1">
                           ⚠ Order total exceeds remaining trade credit capacity by ₹{(totalAmount - availableCredit).toFixed(2)}.
                         </p>
                       )}
                       {isCreditFrozen && (
                         <p className="text-red-500 font-bold pt-1">
-                          ⚠ Credit is currently frozen: {creditProfile?.freezeReason || "Outstanding balance overdue."}
+                          ⚠ Credit is frozen — settle the outstanding balance above to re-enable this option.
                         </p>
                       )}
                     </div>
@@ -202,7 +276,6 @@ const Checkout = () => {
                 </div>
               </label>
 
-              {/* Option 2: Immediate Payment */}
               <label 
                 className={`flex items-start justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
                   paymentMethod === 'immediate' ? 'border-[#009688] bg-[#f4fbf9]' : 'border-slate-200 hover:border-slate-300'
@@ -229,14 +302,40 @@ const Checkout = () => {
           </div>
         </div>
 
-        {/* Right Column: Order Summary */}
         <div className="w-full">
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-6 space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Order Summary</h3>
 
+            {/* NEW: full itemized breakdown instead of just a subtotal number */}
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {safeCart.map((item, idx) => {
+                const price = item.salesRate || item.price || 0;
+                const qty = item.orderQuantity || item.quantity || 1;
+                return (
+                  <div key={item._id || item.batchRef || idx} className="flex justify-between text-xs border-b border-slate-100 pb-2">
+                    <div className="pr-2">
+                      <p className="font-medium text-[#0f2d4a]">{item.product || item.productName || 'Item'}</p>
+                      <p className="text-slate-400">{qty} × ₹{price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <span className="font-semibold text-[#0f2d4a] whitespace-nowrap">
+                      ₹{(price * qty).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* NEW: selected payment method summary */}
+            <div className="text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between">
+              <span className="text-slate-500">Payment Method:</span>
+              <strong className="text-[#0f2d4a]">
+                {paymentMethod === 'net_14' ? `Net ${creditDays} Trade Credit` : 'Immediate Payment'}
+              </strong>
+            </div>
+
             <div className="space-y-2 text-xs text-slate-600 pt-2">
               <div className="flex justify-between">
-                <span>Subtotal ({cart?.length || 0} batches)</span>
+                <span>Subtotal ({safeCart.length} batches)</span>
                 <span className="font-semibold text-[#0f2d4a]">₹{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
@@ -251,14 +350,14 @@ const Checkout = () => {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={isSubmitting || (paymentMethod === 'net_14' && (!isCreditSufficient || !isNetTermsEligible)) || (cart?.length === 0)}
+              disabled={isSubmitting || (paymentMethod === 'net_14' && (!isCreditSufficient || !isNetTermsEligible)) || safeCart.length === 0}
               className="w-full py-3 bg-[#00c4a7] hover:bg-[#00b096] disabled:bg-slate-300 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all"
             >
               {isSubmitting 
                 ? 'Processing Transaction...' 
                 : paymentMethod === 'net_14' 
                   ? `Confirm Order on Net ${creditDays} Terms` 
-                  : 'Pay Now & Complete Order'
+                  : 'Proceed to Payment Gateway'
               }
             </button>
           </div>

@@ -52,25 +52,46 @@ const PaymentPage = () => {
     initPaymentSession();
   }, [orderId, backendUrl]);
 
-  const handlePaymentSuccess = (paymentIntent) => {
-    setPaymentSuccess(true);
+  // Updated to include synchronous backend verification
+  const handlePaymentSuccess = async (paymentIntent) => {
+    try {
+      setLoading(true); // Show spinner while verifying with backend
 
-    // Clear cart in local state & storage once order is settled
-    setCart([]);
-    localStorage.removeItem('cart');
-    refreshCart();
+      // Verify payment with our server
+      await axios.post(
+        `${backendUrl}/api/v1/payments/verify`,
+        { 
+          paymentIntentId: paymentIntent.id, 
+          orderId 
+        },
+        { withCredentials: true }
+      );
 
-    // Redirect user to order summary or invoice after 3 seconds
-    setTimeout(() => {
-      navigate(`/orders/${orderId}`);
-    }, 3000);
+      setPaymentSuccess(true);
+
+      // Clear cart in local state & storage once verified
+      setCart([]);
+      localStorage.removeItem('cart');
+      refreshCart();
+
+      // Redirect user to order summary or invoice after 3 seconds
+      setTimeout(() => {
+        navigate(`/orders/${orderId}`);
+      }, 3000);
+
+    } catch (err) {
+      console.error('❌ [VERIFICATION ERROR]:', err.response?.data || err.message);
+      setError('Payment went through, but verification failed on our server. Please contact support.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-gray-600 font-medium">Securing payment gateway...</p>
+        <p className="text-gray-600 font-medium">Communicating with secure gateway...</p>
       </div>
     );
   }
@@ -96,9 +117,9 @@ const PaymentPage = () => {
         <div className="w-14 h-14 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
           ✓
         </div>
-        <h2 className="text-2xl font-bold text-green-800 mb-2">Payment Successful!</h2>
+        <h2 className="text-2xl font-bold text-green-800 mb-2">Payment Verified!</h2>
         <p className="text-sm text-green-700 mb-4">
-          Your transaction has been confirmed. Updating inventory and generating your tax invoice...
+          Your transaction has been securely confirmed. Generating your tax invoice...
         </p>
         <p className="text-xs text-gray-500">Redirecting to order details...</p>
       </div>

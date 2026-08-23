@@ -25,6 +25,8 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SuperAdminKYC from "./components/SuperAdminKYC.jsx";
 import AddProductForm from "./components/AddProductForm.jsx";
 import AddInventoryForm from "./components/AddInventoryForm.jsx";
+import OrderTrackingDashboard from "./pages/OrderTrackingDashboard.jsx";
+import AccountsReceivable from "./pages/AccountsReceivables.jsx";
 
 function App() {
   return (
@@ -43,9 +45,10 @@ function App() {
         <Route path="/register-user" element={<RegisterUser />} />
         <Route path="/register-org" element={<RegisterOrganization />} />
         
-        {/* --- DEDICATED TOP-LEVEL CHECKOUT ROUTE --- */}
+        {/* --- DEDICATED TOP-LEVEL CHECKOUT & PAYMENT ROUTES --- */}
         <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/payment/:orderId" element={<PaymentPage />} />
         </Route>
 
         {/* --- DASHBOARD & ROLE-BASED SUB-ROUTES --- */}
@@ -59,6 +62,8 @@ function App() {
             <Route path="kyc" element={<SuperAdminKYC />} />
             <Route path="add-product" element={<AddProductForm />} />
             <Route path="add-inventory" element={<AddInventoryForm />} />
+            <Route path="track-orders" element={<OrderTrackingDashboard/>}/>
+            <Route path="receivables" element={<AccountsReceivable/>}/>
           </Route>
 
           {/* 2. ORG_ADMIN ROUTES */}

@@ -61,6 +61,11 @@ const paymentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    type: {
+      type: String,
+      enum: ["order_payment", "credit_settlement"],
+      default: "order_payment"
+    },
   },
   { timestamps: true }
 );

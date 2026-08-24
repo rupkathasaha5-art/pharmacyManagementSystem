@@ -36,8 +36,8 @@ const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
 // Modal for dispatch (assign driver) and cancel (reason) actions
-const ActionModal = ({ mode, order, onClose, onConfirm, isSubmitting }) => {
-  const [driverId, setDriverId] = useState('');
+const ActionModal = ({ mode, order, drivers, isLoadingDrivers, onClose, onConfirm, isSubmitting }) => {
+  const [selectedDriverId, setSelectedDriverId] = useState('');
   const [reason, setReason] = useState('');
 
   if (!order) return null;
@@ -59,16 +59,52 @@ const ActionModal = ({ mode, order, onClose, onConfirm, isSubmitting }) => {
 
         {isDispatch ? (
           <div className="mb-4">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-              Driver ID
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
+              Assign Driver
             </label>
-            <input
-              type="text"
-              value={driverId}
-              onChange={(e) => setDriverId(e.target.value)}
-              placeholder="Enter the assigned driver's user ID"
-              className="w-full text-sm px-3 py-2.5 rounded-lg border border-slate-200 focus:border-[#009688] focus:outline-none focus:ring-2 focus:ring-[#009688]/20"
-            />
+            {isLoadingDrivers ? (
+              <div className="text-xs text-slate-400 py-4 text-center">Loading drivers...</div>
+            ) : drivers.length === 0 ? (
+              <div className="text-xs text-slate-400 py-4 text-center">No active drivers found.</div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {drivers.map((driver) => (
+                  <label
+                    key={driver._id}
+                    className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedDriverId === driver._id
+                        ? 'border-[#009688] bg-[#f4fbf9]'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="driverId"
+                        checked={selectedDriverId === driver._id}
+                        onChange={() => setSelectedDriverId(driver._id)}
+                        className="accent-[#009688]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0f2d4a]">{driver.name || driver.email}</p>
+                        {driver.phone && <p className="text-[11px] text-slate-400">{driver.phone}</p>}
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold px-2 py-1 rounded-full ${
+                        driver.pendingDeliveries === 0
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : driver.pendingDeliveries <= 3
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-red-50 text-red-700'
+                      }`}
+                    >
+                      {driver.pendingDeliveries} pending
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="mb-4">
@@ -93,8 +129,8 @@ const ActionModal = ({ mode, order, onClose, onConfirm, isSubmitting }) => {
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(isDispatch ? { driverId } : { reason })}
-            disabled={isSubmitting || (isDispatch ? !driverId.trim() : !reason.trim())}
+            onClick={() => onConfirm(isDispatch ? { driverId: selectedDriverId } : { reason })}
+            disabled={isSubmitting || (isDispatch ? !selectedDriverId : !reason.trim())}
             className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg text-white disabled:bg-slate-300 ${
               isDispatch ? 'bg-[#009688] hover:bg-[#00786a]' : 'bg-red-600 hover:bg-red-700'
             }`}
@@ -118,6 +154,8 @@ const OrderTrackingDashboard = () => {
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [modal, setModal] = useState({ mode: null, order: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [drivers, setDrivers] = useState([]);
+  const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -160,6 +198,20 @@ const OrderTrackingDashboard = () => {
     fetchSummary();
     fetchOrders(activeFilter);
   };
+  
+  const fetchDrivers = useCallback(async () => {
+    setIsLoadingDrivers(true);
+    try {
+      const res = await axios.get(`${backendUrl}/api/v1/orders/admin/drivers-workload`, { withCredentials: true });
+      if (res.data?.success) {
+        setDrivers(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load drivers:', err);
+    } finally {
+      setIsLoadingDrivers(false);
+    }
+  }, [backendUrl]);
 
   const handleAction = async (payload) => {
     const { mode, order } = modal;
@@ -320,7 +372,10 @@ const OrderTrackingDashboard = () => {
                           <div className="flex justify-end gap-2">
                             {canDispatch && (
                               <button
-                                onClick={() => setModal({ mode: 'dispatch', order })}
+                                onClick={() => {
+                                  setModal({ mode: 'dispatch', order });
+                                  fetchDrivers();
+                                }}
                                 className="text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg bg-[#009688] text-white hover:bg-[#00786a]"
                               >
                                 Dispatch
@@ -388,12 +443,14 @@ const OrderTrackingDashboard = () => {
       </div>
 
       <ActionModal
-        mode={modal.mode}
-        order={modal.order}
-        onClose={() => setModal({ mode: null, order: null })}
-        onConfirm={handleAction}
-        isSubmitting={isSubmitting}
-      />
+  mode={modal.mode}
+  order={modal.order}
+  drivers={drivers}
+  isLoadingDrivers={isLoadingDrivers}
+  onClose={() => setModal({ mode: null, order: null })}
+  onConfirm={handleAction}
+  isSubmitting={isSubmitting}
+/>
     </div>
   );
 };

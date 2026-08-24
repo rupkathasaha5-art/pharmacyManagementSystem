@@ -70,7 +70,7 @@ const orderSchema = new mongoose.Schema({
   // out_for_delivery: driver has picked up the order
   // delivered: driver confirmed drop-off via OTP
   // cancelled: cancelled by ORG_ADMIN (or system, for abandoned pending_payment orders)
-  enum: ['pending_payment', 'placed', 'out_for_delivery', 'delivered', 'cancelled'],
+  enum: ['pending_payment', 'placed', 'out_for_delivery', 'delivered', 'cancelled','delivery-failed'],
   default: 'placed'
   },
   // Tracks whether THIS specific order's balance has been paid off via credit
@@ -98,7 +98,11 @@ amountSettled: { type: Number, default: 0, min: 0 }, // running total paid towar
   deliveredAt: { type: Date },
   cancelledAt: { type: Date },
   cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  cancellationReason: { type: String, trim: true }
+  cancellationReason: { type: String, trim: true },
+
+  deliveryException: { type: String, trim: true, default: null }, // e.g. "Shop Closed"
+  deliveryExceptionAt: { type: Date, default: null },
+  deliveryExceptionReportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   }, { timestamps: true });
 
 orderSchema.index({ buyerOrg: 1, status: 1 });

@@ -20,6 +20,11 @@ const batchInventorySchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Expiry date is required']
   },
+  expiryStatus: {
+  type: String,
+  enum: ['green', 'yellow', 'red'],
+  default: 'green'
+},
   quantityInStock: {
     type: Number,
     required: true,

@@ -17,7 +17,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState('net_14');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(null);
+  const [orderComplete, setOrderComplete] = useState(null); // now a snapshot object, not just a string
   const [isLoadingCart, setIsLoadingCart] = useState(true);
 
   useEffect(() => {
@@ -69,9 +69,6 @@ const Checkout = () => {
   const isNetTermsEligible = (activeOrg.status === 'approved' || userData.status === 'approved') && !isCreditFrozen;
   const creditDays = creditProfile.creditDays || 14;
 
-  // Credit option is only genuinely selectable when not frozen and eligible.
-  // Insufficient-credit is still selectable (so the user can see the shortfall),
-  // but frozen accounts are hard-blocked from even choosing this option.
   const isCreditOptionDisabled = isCreditFrozen || !isNetTermsEligible;
 
   const calculateNetDueDate = () => {
@@ -89,8 +86,6 @@ const Checkout = () => {
         { withCredentials: true }
       );
       if (response.data?.data) {
-        // Navigate to a dedicated settlement payment page (mirrors PaymentPage.jsx,
-        // but pays off currentOutstanding instead of a specific order)
         navigate('/settle-credit');
       }
     } catch (error) {
@@ -123,6 +118,19 @@ const Checkout = () => {
         if (paymentMethod === 'immediate') {
           navigate(`/payment/${orderInfo._id}`); 
         } else {
+          // Snapshot everything the success screen needs from the SERVER'S
+          // response right now, before clearing cart/state. Reading these
+          // values from `cart`/`totalAmount` after clearing was the bug —
+          // cart becomes empty, so those reactive values recompute to 0
+          // by the time this screen renders.
+          const completedOrderSnapshot = {
+            orderId: orderInfo._id,
+            invoiceNumber: orderInfo.invoiceNumber || orderInfo._id,
+            deliveryOtp: orderInfo.deliveryOtp || null,
+            total: orderInfo.orderTotal ?? totalAmount,
+            dueDate: orderInfo.dueDate || null,
+          };
+
           setCart([]);
           localStorage.removeItem('cart');
 
@@ -144,7 +152,7 @@ const Checkout = () => {
             });
           }
 
-          setOrderComplete(orderInfo.invoiceNumber || orderInfo._id);
+          setOrderComplete(completedOrderSnapshot);
         }
       }
     } catch (error) {
@@ -161,19 +169,43 @@ const Checkout = () => {
           ✓
         </div>
         <h2 className="text-2xl font-bold text-[#0f2d4a]">Order Confirmed</h2>
-        <p className="text-xs text-slate-400 font-mono mt-1">Invoice No: {orderComplete}</p>
+        <p className="text-xs text-slate-400 font-mono mt-1">Invoice No: {orderComplete.invoiceNumber}</p>
 
         {paymentMethod === 'net_14' ? (
           <div className="my-6 p-4 bg-teal-50 border border-teal-200 rounded-xl text-left text-xs text-[#0f2d4a] space-y-1">
             <p className="font-bold text-teal-800 uppercase tracking-wider">Net {creditDays} Trade Credit Applied</p>
             <p><strong>Billed To:</strong> {orgName}</p>
-            <p><strong>Total Due:</strong> ₹{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-            <p><strong>Due Date:</strong> {calculateNetDueDate()}</p>
+            <p><strong>Total Due:</strong> ₹{orderComplete.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <p><strong>Due Date:</strong> {orderComplete.dueDate ? new Date(orderComplete.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : calculateNetDueDate()}</p>
             <p className="text-slate-500 text-[11px] pt-1">The commercial tax invoice has been generated and queued for dispatch.</p>
           </div>
         ) : (
           <p className="my-6 text-sm text-slate-600">Immediate payment verified. Dispatch tracking initialized.</p>
         )}
+
+        {/* Delivery OTP — previously generated on the backend but never shown anywhere */}
+        {orderComplete.deliveryOtp && (
+          <div className="my-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl text-left">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-1">
+              🔑 Delivery Confirmation Code
+            </p>
+            <p className="text-2xl font-mono font-bold text-amber-800 tracking-widest">
+              {orderComplete.deliveryOtp}
+            </p>
+            <p className="text-[11px] text-amber-600 mt-1">
+              This code is printed on your invoice. Give it to the driver only at the moment of delivery to confirm receipt.
+            </p>
+          </div>
+        )}
+
+        
+        <a  href={`${backendUrl}/api/v1/orders/${orderComplete.orderId}/invoice`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block mt-2 text-xs font-bold uppercase tracking-wider text-[#009688] hover:text-[#00786a]"
+        >
+          📄 Download Invoice PDF
+        </a>
       </div>
     );
   }
@@ -200,7 +232,6 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* NEW: Frozen-credit banner with a direct path to pay it off */}
           {isCreditFrozen && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
               <h3 className="text-sm font-bold text-red-700 mb-1">⚠ Trade Credit Frozen</h3>
@@ -306,7 +337,6 @@ const Checkout = () => {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-6 space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Order Summary</h3>
 
-            {/* NEW: full itemized breakdown instead of just a subtotal number */}
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {safeCart.map((item, idx) => {
                 const price = item.salesRate || item.price || 0;
@@ -325,7 +355,6 @@ const Checkout = () => {
               })}
             </div>
 
-            {/* NEW: selected payment method summary */}
             <div className="text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between">
               <span className="text-slate-500">Payment Method:</span>
               <strong className="text-[#0f2d4a]">

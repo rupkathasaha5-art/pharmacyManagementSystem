@@ -1,6 +1,7 @@
 import {app} from "./app.js"
 import connectDB from "./db/index.js";
 import { initCreditFreezeJob } from "./jobs/creditFreezeCron.js";
+import { initExpiryClassificationJob } from "./jobs/expiryClassificationCron.js";
 
 connectDB()
 .then(
@@ -8,6 +9,7 @@ connectDB()
 
       
         initCreditFreezeJob();
+        initExpiryClassificationJob();
         app.listen(process.env.PORT || 8000,()=>{
             console.log(`Server is running at : ${process.env.PORT}`);
         })

@@ -6,7 +6,12 @@ import {
   confirmDelivery,
   getOrderStatusSummary,
   getOrdersByStatus,
-  getAccountsReceivable
+  getAccountsReceivable,
+  getMyManifest, 
+  reportDeliveryException, 
+  getMyDeliveryLedger,
+  generateInvoicePdf,
+  getDriverWorkloads
 } from "../controllers/order.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -24,5 +29,13 @@ router.post("/:id/confirm-delivery", verifyJWT(['DRIVER']), confirmDelivery);
 router.get("/admin/status-summary", verifyJWT(['SUPER_ADMIN']), getOrderStatusSummary);
 router.get("/admin", verifyJWT(['SUPER_ADMIN']), getOrdersByStatus);
 router.route("/admin/receivables").get(verifyJWT(["SUPER_ADMIN"]),getAccountsReceivable);
+router.get("/admin/drivers-workload", verifyJWT(['SUPER_ADMIN']), getDriverWorkloads);
 
+//Driver dashboard routes
+router.get("/driver/manifest", verifyJWT(['DRIVER']), getMyManifest);
+router.get("/driver/ledger", verifyJWT(['DRIVER']), getMyDeliveryLedger);
+router.post("/:id/report-exception", verifyJWT(['DRIVER']), reportDeliveryException);
+
+
+router.get("/:id/invoice", verifyJWT(['ORG_ADMIN', 'SUPER_ADMIN']), generateInvoicePdf);
 export default router;

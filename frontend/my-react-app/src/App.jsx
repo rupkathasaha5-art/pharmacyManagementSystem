@@ -27,56 +27,62 @@ import AddProductForm from "./components/AddProductForm.jsx";
 import AddInventoryForm from "./components/AddInventoryForm.jsx";
 import OrderTrackingDashboard from "./pages/OrderTrackingDashboard.jsx";
 import AccountsReceivable from "./pages/AccountsReceivables.jsx";
-
+import ActiveManifest from "./pages/ActiveManifest.jsx";
+import DropOffOtp from "./pages/DropOffOtp.jsx";
+import DeliveryLedger from "./pages/DeliveryLedger.jsx";
+import ManufacturerReturns from "./pages/ManufacturerReturns.jsx";
 function App() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
       
-      <Routes>
-        {/* --- PUBLIC MARKETING & STOREFRONT ROUTES --- */}
-        <Route path="/" element={<Home />} />
-        <Route path="/catalog" element={<Catalog />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/product/:productId" element={<Product />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/login" element={<RegisterUser />} />
-        <Route path="/register-user" element={<RegisterUser />} />
-        <Route path="/register-org" element={<RegisterOrganization />} />
-        
-        {/* --- DEDICATED TOP-LEVEL CHECKOUT & PAYMENT ROUTES --- */}
-        <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/payment/:orderId" element={<PaymentPage />} />
-        </Route>
-
-        {/* --- DASHBOARD & ROLE-BASED SUB-ROUTES --- */}
-        <Route path="/dashboard">
+      <main className="flex-1">
+        <Routes>
+          {/* --- PUBLIC MARKETING & STOREFRONT ROUTES --- */}
+          <Route path="/" element={<Home />} />
+          <Route path="/catalog" element={<Catalog />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/product/:productId" element={<Product />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/login" element={<RegisterUser />} />
+          <Route path="/register-user" element={<RegisterUser />} />
+          <Route path="/register-org" element={<RegisterOrganization />} />
           
-          {/* Default Dashboard Index */}
-          <Route index element={<Dashboard />} />
-
-          {/* 1. SUPER_ADMIN ROUTES */}
-          <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-            <Route path="kyc" element={<SuperAdminKYC />} />
-            <Route path="add-product" element={<AddProductForm />} />
-            <Route path="add-inventory" element={<AddInventoryForm />} />
-            <Route path="track-orders" element={<OrderTrackingDashboard/>}/>
-            <Route path="receivables" element={<AccountsReceivable/>}/>
-          </Route>
-
-          {/* 2. ORG_ADMIN ROUTES */}
+          {/* --- DEDICATED TOP-LEVEL CHECKOUT & PAYMENT ROUTES --- */}
           <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
-            <Route path="place-order" element={<PlaceOrder />} />
-            <Route path="my-orders" element={<Orders />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/payment/:orderId" element={<PaymentPage />} />
           </Route>
 
-        </Route>
+          {/* --- DASHBOARD & ROLE-BASED SUB-ROUTES --- */}
+          <Route path="/dashboard">
+            <Route index element={<Dashboard />} />
 
-        {/* Fallback Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+            <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+              <Route path="kyc" element={<SuperAdminKYC />} />
+              <Route path="add-product" element={<AddProductForm />} />
+              <Route path="add-inventory" element={<AddInventoryForm />} />
+              <Route path="track-orders" element={<OrderTrackingDashboard/>}/>
+              <Route path="receivables" element={<AccountsReceivable/>}/>
+              <Route path="return-to-manufacturer" element={<ManufacturerReturns />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
+              <Route path="place-order" element={<PlaceOrder />} />
+              <Route path="my-orders" element={<Orders />} />
+            </Route>
+            
+            <Route element={<ProtectedRoute allowedRoles={['DRIVER']} />}>
+              <Route path="manifest" element={<ActiveManifest />} />
+              <Route path="dropoff" element={<DropOffOtp />} />
+              <Route path="ledger" element={<DeliveryLedger />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
       <Footer />
     </div>

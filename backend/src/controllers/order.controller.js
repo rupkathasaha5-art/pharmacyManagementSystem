@@ -6,7 +6,8 @@ import BatchInventory from "../models/BatchInventory.model.js";
 import Order from "../models/Order.model.js";
 import { Org } from "../models/Org.model.js";
 import mongoose from "mongoose";
-
+import PDFDocument from "pdfkit";
+import { User } from "../models/User.model.js";
 
 // Generates a 6-digit delivery confirmation code, printed on the invoice
 // and later matched against what the driver enters via confirm-delivery
@@ -454,4 +455,260 @@ export const getAccountsReceivable = asyncHandler(async (req, res) => {
   }).sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   return res.status(200).json(new ApiResponse(200, receivables, "Accounts receivable fetched."));
+});
+
+//=============================================driver controllers======================================================
+
+// GET /api/v1/orders/driver/manifest
+// Today's assigned, in-progress drop-offs for the logged-in driver
+export const getMyManifest = asyncHandler(async (req, res) => {
+  const orders = await Order.find({
+    assignedDriver: req.user._id,
+    status: 'out_for_delivery'
+  })
+    .populate('buyerOrg', 'organization.name organization.phone organization.email organization.address')
+    .sort({ outForDeliveryAt: 1 });
+
+  return res.status(200).json(new ApiResponse(200, orders, "Manifest fetched."));
+});
+
+// POST /api/v1/orders/:id/report-exception
+// Driver reports a failed drop-off (shop closed, recipient unavailable, etc.)
+export const reportDeliveryException = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!reason) throw new ApiError(400, "An exception reason is required.");
+
+  const order = await Order.findById(id);
+  if (!order) throw new ApiError(404, "Order not found");
+
+  if (order.status !== 'out_for_delivery') {
+    throw new ApiError(400, `Cannot report an exception for an order with status '${order.status}'.`);
+  }
+  if (order.assignedDriver?.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "This order is not assigned to you.");
+  }
+
+  order.status = 'delivery_failed';
+  order.deliveryException = reason;
+  order.deliveryExceptionAt = new Date();
+  order.deliveryExceptionReportedBy = req.user._id;
+  await order.save();
+
+  return res.status(200).json(new ApiResponse(200, order, "Delivery exception reported."));
+});
+
+// GET /api/v1/orders/driver/ledger?status=delivered|delivery_failed
+// Driver's own completed/failed deliveries (defaults to both)
+export const getMyDeliveryLedger = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+
+  const filter = {
+    assignedDriver: req.user._id,
+    status: status ? status : { $in: ['delivered', 'delivery_failed'] }
+  };
+
+  const orders = await Order.find(filter)
+    .populate('buyerOrg', 'organization.name')
+    .sort({ updatedAt: -1 })
+    .limit(200);
+
+  return res.status(200).json(new ApiResponse(200, orders, "Delivery ledger fetched."));
+});
+
+
+
+//=================================generating invoice pdf==================================================
+
+
+// GET /api/v1/orders/:id/invoice
+// Streams a tax invoice PDF built entirely from the Order's own snapshot data —
+// no live BatchInventory/Product lookups, so the invoice always reflects what
+// was actually true at the time of sale, even if prices/stock change later.
+export const generateInvoicePdf = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const order = await Order.findById(id)
+    .select('+deliveryOtp')
+    .populate('buyerOrg', 'organization.name organization.taxId organization.address organization.phone organization.email');
+
+  if (!order) throw new ApiError(404, "Order not found");
+
+  // Ownership check — buyer org can only pull their own invoice; SUPER_ADMIN can pull any
+  if (req.user.role === 'ORG_ADMIN') {
+    const requestingOrgId = req.user.org || req.user.organization;
+    if (requestingOrgId && order.buyerOrg?._id.toString() !== requestingOrgId.toString()) {
+      throw new ApiError(403, "You do not have permission to view this invoice.");
+    }
+  }
+
+  if (!order.invoiceNumber) {
+    throw new ApiError(400, "This order does not have an invoice yet — payment may still be pending.");
+  }
+
+  const org = order.buyerOrg?.organization || {};
+  const address = org.address || {};
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${order.invoiceNumber}.pdf"`);
+
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  doc.pipe(res);
+
+  const formatCurrency = (n) => `Rs. ${Number(n || 0).toFixed(2)}`;
+  const formatDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-');
+
+  // --- Header ---
+  doc.fontSize(18).font('Helvetica-Bold').text('PharmaStream Wholesale Pvt. Ltd.', { align: 'left' });
+  doc.fontSize(9).font('Helvetica').fillColor('#555')
+    .text('Registered Office: Jharkhand, India')
+    .text('GSTIN: 20AAAAA0000A1Z5'); // replace with your actual seller GSTIN
+  doc.moveDown(1.5);
+
+  doc.fillColor('#000').fontSize(16).font('Helvetica-Bold').text('TAX INVOICE', { align: 'center' });
+  doc.moveDown(1);
+
+  // --- Invoice meta + Buyer details, side by side ---
+  const topY = doc.y;
+  doc.fontSize(10).font('Helvetica-Bold').text('Invoice Details', 40, topY);
+  doc.font('Helvetica').fontSize(9)
+    .text(`Invoice No: ${order.invoiceNumber}`, 40, topY + 15)
+    .text(`Invoice Date: ${formatDate(order.invoiceDate)}`, 40, topY + 28)
+    .text(`Due Date: ${formatDate(order.dueDate)}`, 40, topY + 41)
+    .text(`Payment Terms: ${order.paymentMethod === 'net_14' ? 'Net Trade Credit' : 'Immediate Payment'}`, 40, topY + 54);
+
+  doc.font('Helvetica-Bold').fontSize(10).text('Billed To', 320, topY);
+  doc.font('Helvetica').fontSize(9)
+    .text(org.name || '-', 320, topY + 15)
+    .text(`GSTIN: ${org.taxId || '-'}`, 320, topY + 28)
+    .text(`${address.street || ''}, ${address.city || ''}`, 320, topY + 41, { width: 220 })
+    .text(`${address.state || ''} - ${address.postalCode || ''}`, 320, topY + 54)
+    .text(`Phone: ${org.phone || '-'}`, 320, topY + 67);
+
+  doc.moveDown(4);
+
+  // --- Line items table ---
+  const tableTop = doc.y + 10;
+  const colX = { sr: 40, name: 65, batch: 190, expiry: 250, hsn: 305, qty: 340, rate: 370, tax: 415, total: 480 };
+
+  doc.font('Helvetica-Bold').fontSize(8);
+  doc.text('#', colX.sr, tableTop);
+  doc.text('Product', colX.name, tableTop);
+  doc.text('Batch', colX.batch, tableTop);
+  doc.text('Expiry', colX.expiry, tableTop);
+  doc.text('HSN', colX.hsn, tableTop);
+  doc.text('Qty', colX.qty, tableTop);
+  doc.text('Rate', colX.rate, tableTop);
+  doc.text('Tax', colX.tax, tableTop);
+  doc.text('Total', colX.total, tableTop, { width: 75, align: 'right' });
+
+  doc.moveTo(40, tableTop + 12).lineTo(555, tableTop + 12).strokeColor('#ccc').stroke();
+
+  let rowY = tableTop + 18;
+  doc.font('Helvetica').fontSize(8);
+
+  order.items.forEach((item, idx) => {
+    const taxTotal = (item.gst?.cgst || 0) + (item.gst?.sgst || 0) + (item.gst?.igst || 0);
+
+    // Wrap to a new page if we're near the bottom
+    if (rowY > 720) {
+      doc.addPage();
+      rowY = 40;
+    }
+
+    doc.text(String(idx + 1), colX.sr, rowY);
+    doc.text(item.productName || '-', colX.name, rowY, { width: 120 });
+    doc.text(item.batchNumber || '-', colX.batch, rowY, { width: 55 });
+    doc.text(formatDate(item.expiryDate), colX.expiry, rowY, { width: 50 });
+    doc.text(item.hsn || '-', colX.hsn, rowY, { width: 30 });
+    doc.text(String(item.quantity), colX.qty, rowY, { width: 25 });
+    doc.text(formatCurrency(item.rate), colX.rate, rowY, { width: 40 });
+    doc.text(formatCurrency(taxTotal), colX.tax, rowY, { width: 60 });
+    doc.text(formatCurrency(item.lineTotal), colX.total, rowY, { width: 75, align: 'right' });
+
+    rowY += 18;
+  });
+
+  doc.moveTo(40, rowY + 4).lineTo(555, rowY + 4).strokeColor('#ccc').stroke();
+  rowY += 14;
+
+  // --- Tax breakdown ---
+  const totalCgst = order.items.reduce((a, i) => a + (i.gst?.cgst || 0), 0);
+  const totalSgst = order.items.reduce((a, i) => a + (i.gst?.sgst || 0), 0);
+  const totalIgst = order.items.reduce((a, i) => a + (i.gst?.igst || 0), 0);
+  const subtotal = order.items.reduce((a, i) => a + (i.rate * i.quantity), 0);
+
+  doc.font('Helvetica').fontSize(9);
+  doc.text('Taxable Value:', 400, rowY, { width: 100, align: 'left' });
+  doc.text(formatCurrency(subtotal), 480, rowY, { width: 75, align: 'right' });
+  rowY += 14;
+
+  if (totalCgst > 0) {
+    doc.text('CGST:', 400, rowY, { width: 100 });
+    doc.text(formatCurrency(totalCgst), 480, rowY, { width: 75, align: 'right' });
+    rowY += 14;
+    doc.text('SGST:', 400, rowY, { width: 100 });
+    doc.text(formatCurrency(totalSgst), 480, rowY, { width: 75, align: 'right' });
+    rowY += 14;
+  }
+  if (totalIgst > 0) {
+    doc.text('IGST:', 400, rowY, { width: 100 });
+    doc.text(formatCurrency(totalIgst), 480, rowY, { width: 75, align: 'right' });
+    rowY += 14;
+  }
+
+  doc.font('Helvetica-Bold').fontSize(11);
+  doc.text('Grand Total:', 400, rowY + 4, { width: 100 });
+  doc.text(formatCurrency(order.orderTotal), 480, rowY + 4, { width: 75, align: 'right' });
+  rowY += 30;
+
+  // --- Delivery OTP box ---
+  if (order.deliveryOtp && order.status !== 'delivered') {
+    doc.rect(40, rowY, 515, 45).fillAndStroke('#fff8e1', '#f5c542');
+    doc.fillColor('#7a5c00').font('Helvetica-Bold').fontSize(10)
+      .text('DELIVERY CONFIRMATION CODE', 55, rowY + 8);
+    doc.font('Helvetica-Bold').fontSize(16)
+      .text(order.deliveryOtp, 55, rowY + 22);
+    doc.font('Helvetica').fontSize(7).fillColor('#7a5c00')
+      .text('Provide this code only to the delivery driver, at the moment of receiving your goods.', 200, rowY + 26, { width: 340 });
+    rowY += 60;
+  }
+
+  doc.fillColor('#000').fontSize(7).text(
+    'This is a computer-generated invoice and does not require a physical signature.',
+    40, rowY + 20, { align: 'center', width: 515 }
+  );
+
+  doc.end();
+});
+
+
+
+// GET /api/v1/orders/admin/drivers-workload
+// Every active driver, with their current count of undelivered assigned
+// orders — lets an admin pick the least-loaded driver instead of typing an ID.
+export const getDriverWorkloads = asyncHandler(async (req, res) => {
+  const drivers = await User.find({ role: 'DRIVER', isActive: true })
+    .select('name email phone')
+    .lean();
+
+  const workloads = await Order.aggregate([
+    { $match: { status: 'out_for_delivery', assignedDriver: { $ne: null } } },
+    { $group: { _id: '$assignedDriver', count: { $sum: 1 } } }
+  ]);
+
+  const workloadMap = new Map(workloads.map((w) => [w._id.toString(), w.count]));
+
+  const result = drivers
+    .map((driver) => ({
+      _id: driver._id,
+      name: driver.name,
+      email: driver.email,
+      phone: driver.phone,
+      pendingDeliveries: workloadMap.get(driver._id.toString()) || 0,
+    }))
+    .sort((a, b) => a.pendingDeliveries - b.pendingDeliveries); // least-loaded first — sensible default for who to assign next
+
+  return res.status(200).json(new ApiResponse(200, result, "Driver workloads fetched."));
 });

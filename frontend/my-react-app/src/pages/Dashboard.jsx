@@ -10,6 +10,7 @@ const MENU_CONFIG = [
   { id: 'sa-inv', name: 'Add Inventory', path: '/dashboard/add-inventory', roles: ['SUPER_ADMIN'], icon: '🧪' },
   { id: 'sa-ord', name: 'Order Control Tower', path: '/dashboard/track-orders', roles: ['SUPER_ADMIN'], icon: '📡' },
   { id: 'sa-fin', name: 'Accounts Receivable', path: '/dashboard/receivables', roles: ['SUPER_ADMIN'], icon: '💼' },
+  { id: 'sa-mr' , name: 'Return to Manufacturer', path: '/dashboard/return-to-manufacturer', roles: ['SUPER_ADMIN'], icon: '🏭'},
   
   // --- ORG_ADMIN MODULES ---
   { id: 'oa-fin', name: 'Financial HUD', path: '/dashboard/wallet', roles: ['ORG_ADMIN'], icon: '💳' },
@@ -141,7 +142,8 @@ const DashboardWelcome = ({ role, name }) => {
       { title: 'Add Product', desc: 'Register new medicines to the catalog with pricing, tax, and classification details.' },
       { title: 'Add Inventory', desc: 'Log new stock batches against existing products, tracking expiry and quantity.' },
       { title: 'Order Control Tower', desc: 'Monitor live checkout carts, assign orders to drivers, and track route status.' },
-      { title: 'Financial Reconciliation', desc: 'View Accounts Receivable, overdue Net-14 invoices, and daily Razorpay settlements.' }
+      { title: 'Financial Reconciliation', desc: 'View Accounts Receivable, overdue Net-14 invoices, and daily Razorpay settlements.' },
+      { title: 'Return to Manufacturer' , desc: 'Medicines with expiry date in less than 90 days has to be returned to the manufacturer. '}
     ],
     ORG_ADMIN: [
       { title: 'Procurement Catalog', desc: 'Search available inventory, add to cart, and checkout instantly against trade credit.' },

@@ -8,21 +8,20 @@ const Catalog = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // NEW: which section is active — same route, two catalogs
+  const [activeTab, setActiveTab] = useState('main'); // 'main' | 'clearance'
   
-  // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [scheduleFilter, setScheduleFilter] = useState('');
   
-  // Pagination State
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 20;
 
-  // Local state to track the quantity inputted for each product card
   const [quantities, setQuantities] = useState({});
 
-  // Role Access Checks
   const isSuperAdmin = userData?.role === 'SUPER_ADMIN';
   const isOrgAdmin = userData?.role === 'ORG_ADMIN';
   const isDriver = userData?.role === 'DRIVER';
@@ -39,12 +38,17 @@ const Catalog = () => {
         limit,
         ...(searchQuery && { search: searchQuery }),
         ...(categoryFilter && { category: categoryFilter }),
-        ...(scheduleFilter && { scheduleType: scheduleFilter })
+        // Schedule filter only applies to the main catalog endpoint —
+        // the clearance endpoint doesn't accept/use it
+        ...(scheduleFilter && activeTab === 'main' && { scheduleType: scheduleFilter })
       }).toString();
 
-      const response = await axios.get(`${backendUrl}/api/v1/catalog/show-catalog?${queryParams}`, { 
-        withCredentials: true 
-      });
+      // NEW: pick the endpoint based on the active tab, same query params otherwise
+      const endpoint = activeTab === 'clearance'
+        ? `${backendUrl}/api/v1/catalog/clearance?${queryParams}`
+        : `${backendUrl}/api/v1/catalog/show-catalog?${queryParams}`;
+
+      const response = await axios.get(endpoint, { withCredentials: true });
       
       if (response.data && response.data.success) {
         setProducts(response.data.data.products);
@@ -71,12 +75,20 @@ const Catalog = () => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, categoryFilter, scheduleFilter, isLoggedIn]);
+  }, [searchQuery, categoryFilter, scheduleFilter, isLoggedIn, activeTab]);
 
   // Pagination effect
   useEffect(() => {
     fetchCatalog();
   }, [page]);
+
+  // NEW: switching tabs resets to page 1 and refetches immediately
+  const handleTabChange = (tab) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    setPage(1);
+    setProducts([]);
+  };
 
   const handleQuantityChange = (batchNumber, value, maxStock) => {
       if (value === '') {
@@ -99,13 +111,11 @@ const Catalog = () => {
   };
 
   const handleAddToCart = (item) => {
-    console.log("🛒 [CATALOG CLICKED] Attempting to add item:", item);
     try {
         const qty = quantities[item.batchNumber];
         const orderQuantity = parseInt(qty, 10);
 
         if (isNaN(orderQuantity) || orderQuantity < 1) {
-            console.warn("⚠️ [ADD TO CART BLOCKED] Invalid quantity entered:", qty);
             alert('Please enter a quantity greater than 0.');
             return;
         }
@@ -116,7 +126,6 @@ const Catalog = () => {
             orderQuantity: orderQuantity
         };
         
-        console.log("📦 [ITEM ADDED TO CONTEXT]:", batchToCart);
         addToCart(batchToCart);
         alert(`Added ${orderQuantity} units of ${item.product} to your cart.`);
     } catch(err) {
@@ -152,10 +161,11 @@ const Catalog = () => {
     );
   }
 
+  const isClearance = activeTab === 'clearance';
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
       
-      {/* Header & Search Bar */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         <div>
             <h1 className="text-2xl font-bold text-teal-900">B2B Product Catalog</h1>
@@ -189,18 +199,51 @@ const Catalog = () => {
                 <option value="General">General</option>
             </select>
 
-            <select 
-                value={scheduleFilter}
-                onChange={(e) => setScheduleFilter(e.target.value)}
-                className="py-2 px-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white"
-            >
-                <option value="">All Schedules</option>
-                <option value="OTC">OTC</option>
-                <option value="Schedule H">Schedule H</option>
-                <option value="Schedule H1">Schedule H1</option>
-            </select>
+            {/* Schedule filter only makes sense for the main catalog */}
+            {!isClearance && (
+                <select 
+                    value={scheduleFilter}
+                    onChange={(e) => setScheduleFilter(e.target.value)}
+                    className="py-2 px-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white"
+                >
+                    <option value="">All Schedules</option>
+                    <option value="OTC">OTC</option>
+                    <option value="Schedule H">Schedule H</option>
+                    <option value="Schedule H1">Schedule H1</option>
+                </select>
+            )}
         </div>
       </div>
+
+      {/* NEW: section tabs — same route, two catalogs */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleTabChange('main')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
+            !isClearance
+              ? 'bg-teal-700 text-white border-teal-700'
+              : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          Main Catalog
+        </button>
+        <button
+          onClick={() => handleTabChange('clearance')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold border transition-colors flex items-center gap-2 ${
+            isClearance
+              ? 'bg-amber-600 text-white border-amber-600'
+              : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          ⚠ Clearance Deals
+        </button>
+      </div>
+
+      {isClearance && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          Batches nearing expiry (90 days – 1 year), offered at a discount. Stock here moves to manufacturer return once it crosses the 90-day mark.
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 text-red-800 rounded-lg border-l-4 border-red-500 text-sm">
@@ -217,14 +260,18 @@ const Catalog = () => {
       ) : products.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
             <span className="text-4xl block mb-3">📦</span>
-            <h3 className="text-lg font-medium text-slate-700">No products found</h3>
-            <p className="text-sm text-slate-500">Try adjusting your search or filters.</p>
+            <h3 className="text-lg font-medium text-slate-700">
+                {isClearance ? 'No clearance deals right now' : 'No products found'}
+            </h3>
+            <p className="text-sm text-slate-500">
+                {isClearance ? 'Check back later for discounted near-expiry stock.' : 'Try adjusting your search or filters.'}
+            </p>
         </div>
       ) : (
         <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {products.map((item) => (
-                    <div key={item.product} className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                    <div key={item.product} className={`bg-white border rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col ${isClearance ? 'border-amber-200' : 'border-slate-200'}`}>
                         
                         <div className="p-5 border-b border-slate-100 flex-grow">
                             <div className="flex justify-between items-start mb-2">
@@ -260,17 +307,34 @@ const Catalog = () => {
                                     <span className="text-slate-400 text-xs block">Form</span>
                                     <span className="font-medium text-slate-700">{item.form}</span>
                                 </div>
+                                {/* NEW: expiry date shown explicitly on clearance cards — the whole reason it's discounted */}
+                                <div className="col-span-2">
+        <span className="text-slate-400 text-xs block">Expires</span>
+        <span className="font-medium text-slate-700">
+            {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+        </span>
+    </div>
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 p-5 flex flex-col gap-4">
+                        <div className={`p-5 flex flex-col gap-4 ${isClearance ? 'bg-amber-50/50' : 'bg-slate-50'}`}>
                             <div className="flex justify-between items-end">
                                 <div>
                                     <span className="text-xs text-slate-500 block mb-1">Trade Price (PTR)</span>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-bold text-teal-700">₹{item.salesRate}</span>
-                                        <span className="text-xs text-slate-400 line-through">MRP: ₹{item.mrp}</span>
-                                    </div>
+                                    {isClearance ? (
+                                        <div className="flex items-baseline gap-2 flex-wrap">
+                                            <span className="text-2xl font-bold text-amber-700">₹{item.salesRate}</span>
+                                            <span className="text-xs text-slate-400 line-through">₹{item.originalRate}</span>
+                                            <span className="text-[10px] font-bold bg-amber-600 text-white px-1.5 py-0.5 rounded">
+                                                -{item.discountPercent}%
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-2xl font-bold text-teal-700">₹{item.salesRate}</span>
+                                            <span className="text-xs text-slate-400 line-through">MRP: ₹{item.mrp}</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <span className="text-xs text-slate-500 block mb-1">In Stock</span>
@@ -321,7 +385,9 @@ const Catalog = () => {
                                             
                                             <button 
                                                 onClick={() => handleAddToCart(item)}
-                                                className="flex-grow bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                                className={`flex-grow text-white font-bold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow-sm ${
+                                                    isClearance ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-600 hover:bg-teal-700'
+                                                }`}
                                             >
                                                 <span>🛒 Add</span>
                                             </button>
@@ -337,7 +403,7 @@ const Catalog = () => {
                                 </div>
                             )}
 
-                            {isSuperAdmin && (
+                            {isSuperAdmin && !isClearance && (
                                 <button 
                                     onClick={() => handleRemoveFromCatalog(item.product)}
                                     className="w-full mt-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-lg text-sm transition-colors border border-red-200"

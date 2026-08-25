@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AppContext } from '../context/AppContext.jsx';
-
+import { FiSearch } from "react-icons/fi";
 const Catalog = () => {
   const { backendUrl, isLoggedIn, userData, addToCart } = useContext(AppContext);
   
@@ -175,7 +175,7 @@ const Catalog = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <div className="relative flex-grow sm:min-w-[250px]">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                    🔍
+                    <FiSearch className="w-6 h-6" />
                 </span>
                 <input
                     type="text"

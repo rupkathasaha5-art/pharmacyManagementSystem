@@ -31,6 +31,12 @@ import ActiveManifest from "./pages/ActiveManifest.jsx";
 import DropOffOtp from "./pages/DropOffOtp.jsx";
 import DeliveryLedger from "./pages/DeliveryLedger.jsx";
 import ManufacturerReturns from "./pages/ManufacturerReturns.jsx";
+import OrderConfirmation from "./pages/OrderConfirmation.jsx";
+import MyOrders from "./pages/MyOrders.jsx";
+import Wallet from "./pages/Wallet.jsx";
+import SettleCredit from "./pages/SettleCredit.jsx";
+import ComplianceProfile from "./pages/ComplianceProfile.jsx";
+
 function App() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -53,6 +59,8 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
+            <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+            <Route path="/settle-credit" element={<SettleCredit />} />
           </Route>
 
           {/* --- DASHBOARD & ROLE-BASED SUB-ROUTES --- */}
@@ -70,7 +78,9 @@ function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['ORG_ADMIN']} />}>
               <Route path="place-order" element={<PlaceOrder />} />
-              <Route path="my-orders" element={<Orders />} />
+              <Route path="my-orders" element={<MyOrders />} />
+              <Route path="wallet" element={<Wallet />} />
+              <Route path="profile" element={<ComplianceProfile />} />
             </Route>
             
             <Route element={<ProtectedRoute allowedRoles={['DRIVER']} />}>

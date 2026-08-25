@@ -17,7 +17,6 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState('net_14');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(null); // now a snapshot object, not just a string
   const [isLoadingCart, setIsLoadingCart] = useState(true);
 
   useEffect(() => {
@@ -118,11 +117,7 @@ const Checkout = () => {
         if (paymentMethod === 'immediate') {
           navigate(`/payment/${orderInfo._id}`); 
         } else {
-          // Snapshot everything the success screen needs from the SERVER'S
-          // response right now, before clearing cart/state. Reading these
-          // values from `cart`/`totalAmount` after clearing was the bug —
-          // cart becomes empty, so those reactive values recompute to 0
-          // by the time this screen renders.
+          // Snapshot everything the success screen needs from the SERVER'S response
           const completedOrderSnapshot = {
             orderId: orderInfo._id,
             invoiceNumber: orderInfo.invoiceNumber || orderInfo._id,
@@ -131,9 +126,11 @@ const Checkout = () => {
             dueDate: orderInfo.dueDate || null,
           };
 
+          // Clear local cart states
           setCart([]);
           localStorage.removeItem('cart');
 
+          // Update user's credit profile locally
           if (setUserData) {
             setUserData(prev => {
               const orgKey = prev?.org ? 'org' : 'organization';
@@ -152,7 +149,13 @@ const Checkout = () => {
             });
           }
 
-          setOrderComplete(completedOrderSnapshot);
+          // Route to the new unified confirmation page, passing the snapshot data
+          navigate(`/order-confirmation/${orderInfo._id}`, { 
+            state: { 
+              orderComplete: completedOrderSnapshot,
+              paymentMethod: 'net_14'
+            } 
+          });
         }
       }
     } catch (error) {
@@ -161,54 +164,6 @@ const Checkout = () => {
       setIsSubmitting(false);
     }
   };
-
-  if (orderComplete) {
-    return (
-      <div className="max-w-xl mx-auto my-16 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center font-sans">
-        <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-          ✓
-        </div>
-        <h2 className="text-2xl font-bold text-[#0f2d4a]">Order Confirmed</h2>
-        <p className="text-xs text-slate-400 font-mono mt-1">Invoice No: {orderComplete.invoiceNumber}</p>
-
-        {paymentMethod === 'net_14' ? (
-          <div className="my-6 p-4 bg-teal-50 border border-teal-200 rounded-xl text-left text-xs text-[#0f2d4a] space-y-1">
-            <p className="font-bold text-teal-800 uppercase tracking-wider">Net {creditDays} Trade Credit Applied</p>
-            <p><strong>Billed To:</strong> {orgName}</p>
-            <p><strong>Total Due:</strong> ₹{orderComplete.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-            <p><strong>Due Date:</strong> {orderComplete.dueDate ? new Date(orderComplete.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : calculateNetDueDate()}</p>
-            <p className="text-slate-500 text-[11px] pt-1">The commercial tax invoice has been generated and queued for dispatch.</p>
-          </div>
-        ) : (
-          <p className="my-6 text-sm text-slate-600">Immediate payment verified. Dispatch tracking initialized.</p>
-        )}
-
-        {/* Delivery OTP — previously generated on the backend but never shown anywhere */}
-        {orderComplete.deliveryOtp && (
-          <div className="my-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl text-left">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-1">
-              🔑 Delivery Confirmation Code
-            </p>
-            <p className="text-2xl font-mono font-bold text-amber-800 tracking-widest">
-              {orderComplete.deliveryOtp}
-            </p>
-            <p className="text-[11px] text-amber-600 mt-1">
-              This code is printed on your invoice. Give it to the driver only at the moment of delivery to confirm receipt.
-            </p>
-          </div>
-        )}
-
-        
-        <a  href={`${backendUrl}/api/v1/orders/${orderComplete.orderId}/invoice`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block mt-2 text-xs font-bold uppercase tracking-wider text-[#009688] hover:text-[#00786a]"
-        >
-          📄 Download Invoice PDF
-        </a>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 font-sans text-[#0f2d4a]">

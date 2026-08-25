@@ -15,7 +15,6 @@ const PaymentPage = () => {
   const [orderSummary, setOrderSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     if (!orderId) {
@@ -42,7 +41,6 @@ const PaymentPage = () => {
           throw new Error('Failed to retrieve client secret from gateway.');
         }
       } catch (err) {
-        console.error('❌ [INIT PAYMENT ERROR]:', err.response?.data || err.message);
         setError(err.response?.data?.message || 'Could not initialize payment session.');
       } finally {
         setLoading(false);
@@ -52,37 +50,43 @@ const PaymentPage = () => {
     initPaymentSession();
   }, [orderId, backendUrl]);
 
-  // Updated to include synchronous backend verification
   const handlePaymentSuccess = async (paymentIntent) => {
     try {
-      setLoading(true); // Show spinner while verifying with backend
+      setLoading(true); // Keep the spinner up while we verify — no separate inline success screen anymore
 
-      // Verify payment with our server
-      await axios.post(
+      const response = await axios.post(
         `${backendUrl}/api/v1/payments/verify`,
-        { 
-          paymentIntentId: paymentIntent.id, 
-          orderId 
-        },
+        { paymentIntentId: paymentIntent.id, orderId },
         { withCredentials: true }
       );
 
-      setPaymentSuccess(true);
+      const updatedOrder = response.data?.data?.order;
 
-      // Clear cart in local state & storage once verified
+      // Clear cart now that payment is genuinely confirmed
       setCart([]);
       localStorage.removeItem('cart');
       refreshCart();
 
-      // Redirect user to order summary or invoice after 3 seconds
-      setTimeout(() => {
-        navigate(`/orders/${orderId}`);
-      }, 3000);
+      // Same snapshot shape Checkout.jsx builds for net_14 — one unified
+      // confirmation page for both payment paths, instead of two different
+      // success screens depending on how the order was paid.
+      const completedOrderSnapshot = {
+        orderId: orderId,
+        invoiceNumber: updatedOrder?.invoiceNumber || orderId,
+        deliveryOtp: updatedOrder?.deliveryOtp || null,
+        total: updatedOrder?.orderTotal ?? orderSummary?.total,
+        dueDate: updatedOrder?.dueDate || null,
+      };
 
+      navigate(`/order-confirmation/${orderId}`, {
+        state: {
+          orderComplete: completedOrderSnapshot,
+          paymentMethod: 'immediate',
+        },
+      });
     } catch (err) {
       console.error('❌ [VERIFICATION ERROR]:', err.response?.data || err.message);
       setError('Payment went through, but verification failed on our server. Please contact support.');
-    } finally {
       setLoading(false);
     }
   };
@@ -111,21 +115,6 @@ const PaymentPage = () => {
     );
   }
 
-  if (paymentSuccess) {
-    return (
-      <div className="max-w-md mx-auto my-12 p-8 bg-green-50 border border-green-200 rounded-xl text-center shadow-sm">
-        <div className="w-14 h-14 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-          ✓
-        </div>
-        <h2 className="text-2xl font-bold text-green-800 mb-2">Payment Verified!</h2>
-        <p className="text-sm text-green-700 mb-4">
-          Your transaction has been securely confirmed. Generating your tax invoice...
-        </p>
-        <p className="text-xs text-gray-500">Redirecting to order details...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-lg mx-auto my-10 px-4">
       {orderSummary && (
@@ -149,4 +138,5 @@ const PaymentPage = () => {
     </div>
   );
 };
+
 export default PaymentPage;

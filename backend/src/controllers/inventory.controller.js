@@ -5,8 +5,22 @@ import Product from "../models/Product.model.js";
 import BatchInventory from "../models/BatchInventory.model.js";
 import mongoose from "mongoose";
 
+const DAYS_90 = 90 * 24 * 60 * 60 * 1000;
+const DAYS_365 = 365 * 24 * 60 * 60 * 1000;
 
+// Same classification boundaries as the nightly expiryClassificationCron —
+// computed here too so a batch never sits as 'green' (full-price, sellable)
+// between the moment it's added and the next midnight cron run.
+const getExpiryStatus = (expiryDate) => {
+  const now = new Date();
+  const in90Days = new Date(now.getTime() + DAYS_90);
+  const in1Year = new Date(now.getTime() + DAYS_365);
 
+  const expiry = new Date(expiryDate);
+  if (expiry < in90Days) return 'red';
+  if (expiry < in1Year) return 'yellow';
+  return 'green';
+};
 
 export const addInventory = asyncHandler(async (req, res) => {
     const {
@@ -57,6 +71,19 @@ export const addInventory = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Expiry date must be in the future.");
     }
 
+    // Classify immediately, matching the nightly cron's boundaries. Red-tier
+    // stock (expiring within 90 days) is rejected outright at intake rather
+    // than accepted and soft-deactivated later — there's no reason to bring
+    // near-expired stock into active inventory when the rule is that it has
+    // to go back to the manufacturer anyway.
+    const expiryStatus = getExpiryStatus(expiryDate);
+    if (expiryStatus === 'red') {
+        throw new ApiError(
+            400,
+            `This batch expires within 90 days (${new Date(expiryDate).toLocaleDateString()}) and cannot be added to active inventory. Stock this close to expiry should be returned to the manufacturer instead.`
+        );
+    }
+
     let newBatch;
     try {
         newBatch = await BatchInventory.create({
@@ -70,7 +97,8 @@ export const addInventory = asyncHandler(async (req, res) => {
             salesRate: Number(salesRate),
             supplierName: supplierName?.trim(),
             purchaseDate: purchaseDate || undefined,
-            taxInclusive: Boolean(taxInclusive)
+            taxInclusive: Boolean(taxInclusive),
+            expiryStatus
         });
     } catch (dbError) {
         // the unique index on {product, batchNumber} catches duplicate batch entries

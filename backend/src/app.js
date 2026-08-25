@@ -8,6 +8,8 @@ import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/order.routes.js";
 import paymentRouter from "./routes/payment.routes.js";
 import manufacturerReturnRouter from "./routes/manufacturerReturn.routes.js";
+import orgAdminRouter from "./routes/orgAdmin.routes.js";
+
 const app = express();
 
 // Request Logger
@@ -40,6 +42,7 @@ app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/orders", orderRouter);
 app.use("/api/v1/payments", paymentRouter);
 app.use("/api/v1/manufacturer-returns", manufacturerReturnRouter);
+app.use("/api/v1/org-admin", orgAdminRouter);
 // 4. Global Error Handler
 app.use((err, req, res, next) => {
   console.error("ERROR INTERCEPTED:", err.message);
